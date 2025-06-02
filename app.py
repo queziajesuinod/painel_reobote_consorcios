@@ -168,6 +168,50 @@ def deletar_propaganda(id):
     db.session.commit()
     return redirect('/propagandas')
 
+@app.route('/consultores')
+def consultores():
+    consultores = Consultor.query.all()
+    return render_template('consultores.html', consultores=consultores)
+
+@app.route('/consultor/toggle/<int:id>', methods=['POST'])
+def toggle_consultor(id):
+    consultor = Consultor.query.get_or_404(id)
+    consultor.ativo = not consultor.ativo
+    db.session.commit()
+    return redirect('/consultores')
+
+@app.route('/consultor/editar/<int:id>', methods=['GET', 'POST'])
+def editarConsultor(id):
+    consultor = Consultor.query.get_or_404(id)
+    if request.method == 'POST':
+        consultor.nome = request.form['nome']
+        consultor.id_agendor = request.form['id_agendor']
+        consultor.ativo = 'ativo' in request.form
+
+        imagem = request.files.get('imagem')
+        if imagem and imagem.filename != '':
+            consultor.imagem_base64 = base64.b64encode(imagem.read()).decode('utf-8')
+
+        db.session.commit()
+        return redirect('/consultores')
+    return render_template('edit.html', consultor=consultor)
+
+@app.route('/consultor/novo', methods=['POST'])
+def novoConsultor():
+    nome = request.form['nome']
+    id_agendor = request.form['id_agendor']
+    ativo = 'ativo' in request.form
+
+    imagem = request.files['imagem']
+    if imagem:
+        imagem_base64 = base64.b64encode(imagem.read()).decode('utf-8')
+    else:
+        imagem_base64 = None
+
+    consultor = Consultor(nome=nome, id_agendor=id_agendor, imagem_base64=imagem_base64, ativo=ativo)
+    db.session.add(consultor)
+    db.session.commit()
+    return redirect('/consultores')
 
 if __name__ == '__main__':
     with app.app_context():
