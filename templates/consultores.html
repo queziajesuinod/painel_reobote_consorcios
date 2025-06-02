@@ -1,0 +1,78 @@
+{% extends 'base.html' %}
+{% block title %}Painel de Consultores{% endblock %}
+{% block content %}
+<div class="container py-4">
+  <h2 class="mb-4">Cadastro de Consultores</h2>
+  <div class="row">
+    <div class="col-md-4">
+      <form method="post" action="/consultor/novo" enctype="multipart/form-data" class="p-4 shadow-sm bg-light rounded">
+        <div class="mb-3">
+          <label class="form-label">Nome</label>
+          <input name="nome" class="form-control" required>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">ID Agendor</label>
+          <input name="id_agendor" class="form-control" required>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Imagem</label>
+          <input type="file" name="imagem" class="form-control" required>
+        </div>
+        <div class="form-check mb-3">
+          <input type="checkbox" name="ativo" id="ativo" class="form-check-input" checked>
+          <label class="form-check-label" for="ativo">Ativo</label>
+        </div>
+        <button type="submit" class="btn btn-success w-100">Cadastrar</button>
+      </form>
+    </div>
+
+    <div class="col-md-8">
+      <h4 class="mb-3">Lista de Consultores</h4>
+      {% if consultores %}
+        <table class="table table-hover align-middle small">
+          <thead class="table-light">
+            <tr>
+              <th>Foto</th>
+              <th>Nome</th>
+              <th>ID Agendor</th>
+              <th>Status</th>
+              <th>Ações</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for c in consultores %}
+            <tr>
+              <td><img src="data:image/png;base64,{{ c.imagem_base64 }}" width="50" class="rounded-circle"></td>
+              <td>{{ c.nome }}</td>
+              <td>{{ c.id_agendor }}</td>
+              <td>
+                {% if c.ativo %}
+                  <span class="badge bg-success">Ativo</span>
+                {% else %}
+                  <span class="badge bg-secondary">Inativo</span>
+                {% endif %}
+              </td>
+              <td>
+                <div class="btn-group btn-group-sm" role="group">
+                  <form method="post" action="/consultor/toggle/{{ c.id }}">
+                    <button type="submit" class="btn btn-outline-secondary" title="Ativar/Inativar">
+                      {% if c.ativo %}Desativar{% else %}Ativar{% endif %}
+                    </button>
+                  </form>
+                  <a href="/consultor/editar/{{ c.id }}" class="btn btn-outline-primary">Editar</a>
+                  <form method="post" action="/consultor/deletar/{{ c.id }}" onsubmit="return confirm('Tem certeza que deseja excluir?')">
+                    <button type="submit" class="btn btn-outline-danger">Excluir</button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <p class="text-muted">Nenhum consultor cadastrado ainda.</p>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

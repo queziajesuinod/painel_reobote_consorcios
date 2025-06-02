@@ -1,0 +1,88 @@
+{% extends 'base.html' %}
+{% block title %}Gerenciar Propagandas{% endblock %}
+{% block content %}
+<div class="container py-4">
+  <div class="row mb-4">
+    <div class="col-md-6">
+      <h2 class="mb-3">Nova Propaganda</h2>
+      <form method="post" enctype="multipart/form-data" class="shadow-sm p-4 bg-white rounded">
+        <div class="mb-3">
+          <label for="titulo" class="form-label">Título</label>
+          <input type="text" id="titulo" name="titulo" class="form-control" required>
+        </div>
+        <div class="mb-3">
+          <label for="imagem" class="form-label">Imagem</label>
+          <input type="file" id="imagem" name="imagem" class="form-control" required>
+        </div>
+        <div class="form-check mb-3">
+          <input type="checkbox" name="ativo" id="ativo" class="form-check-input" checked>
+          <label class="form-check-label" for="ativo">Ativo</label>
+        </div>
+        <button type="submit" class="btn btn-primary w-100">Cadastrar</button>
+      </form>
+    </div>
+
+    <div class="col-md-6">
+      <h2 class="mb-3">Propagandas Ativas</h2>
+      {% if propagandas %}
+        <div class="row row-cols-1 row-cols-md-2 g-3">
+          {% for p in propagandas if p.ativo %}
+            <div class="col">
+              <div class="card h-100 shadow-sm border-0">
+                <img src="data:image/png;base64,{{ p.imagem_base64 }}" class="card-img-top" alt="{{ p.titulo }}">
+                <div class="card-body">
+                  <h5 class="card-title">{{ p.titulo }}</h5>
+                  <span class="badge bg-success">Ativa</span>
+                  <div class="d-flex justify-content-between mt-3">
+                    <form method="post" action="{{ url_for('toggle_propaganda', id=p.id) }}">
+                      <button class="btn btn-sm btn-outline-secondary">Desativar</button>
+                    </form>
+                    <form method="post" action="{{ url_for('deletar_propaganda', id=p.id) }}" onsubmit="return confirm('Deseja excluir esta propaganda?')">
+                      <button class="btn btn-sm btn-outline-danger">Excluir</button>
+                    </form>
+                  </div>
+                </div>
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p class="text-muted">Nenhuma propaganda ativa no momento.</p>
+      {% endif %}
+    </div>
+  </div>
+
+  <hr class="my-5">
+
+  <h4 class="mb-3">Todas as Propagandas</h4>
+  <div class="row row-cols-1 row-cols-md-4 g-4">
+    {% for p in propagandas %}
+      <div class="col">
+        <div class="card h-100 border-0 shadow-sm">
+          <img src="data:image/png;base64,{{ p.imagem_base64 }}" class="card-img-top" alt="{{ p.titulo }}">
+          <div class="card-body">
+            <h5 class="card-title">{{ p.titulo }}</h5>
+            <p>Status:
+              {% if p.ativo %}
+                <span class="badge bg-success">Ativa</span>
+              {% else %}
+                <span class="badge bg-secondary">Inativa</span>
+              {% endif %}
+            </p>
+            <div class="d-flex justify-content-between">
+              <form method="post" action="{{ url_for('toggle_propaganda', id=p.id) }}">
+                <button class="btn btn-sm btn-outline-primary">
+                  {% if p.ativo %}Desativar{% else %}Ativar{% endif %}
+                </button>
+              </form>
+              <form method="post" action="{{ url_for('deletar_propaganda', id=p.id) }}" onsubmit="return confirm('Tem certeza que deseja excluir?')">
+                <button class="btn btn-sm btn-outline-danger">Excluir</button>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

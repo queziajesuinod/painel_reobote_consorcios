@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+{% block title %}Editar Consultor{% endblock %}
+{% block content %}
+<div class="container py-4">
+  <h2 class="mb-4">Editar Consultor</h2>
+  <form method="post" enctype="multipart/form-data" class="p-4 shadow-sm bg-light rounded">
+    <div class="mb-3">
+      <label class="form-label">Nome</label>
+      <input name="nome" value="{{ consultor.nome }}" class="form-control" required>
+    </div>
+
+    <div class="mb-3">
+      <label class="form-label">ID Agendor</label>
+      <input name="id_agendor" value="{{ consultor.id_agendor }}" class="form-control" required>
+    </div>
+
+    <div class="mb-3">
+      <label class="form-label">Foto Atual</label><br>
+      {% if consultor.imagem_base64 %}
+        <img src="data:image/png;base64,{{ consultor.imagem_base64 }}" width="100" class="rounded mb-2">
+      {% else %}
+        <p class="text-muted">Sem imagem cadastrada.</p>
+      {% endif %}
+    </div>
+
+    <div class="mb-3">
+      <label class="form-label">Nova Imagem (opcional)</label>
+      <input type="file" name="imagem" class="form-control">
+    </div>
+
+    <div class="form-check mb-3">
+      <input type="checkbox" name="ativo" class="form-check-input" id="ativo" {% if consultor.ativo %}checked{% endif %}>
+      <label class="form-check-label" for="ativo">Ativo</label>
+    </div>
+
+    <button type="submit" class="btn btn-primary w-100">Salvar Alterações</button>
+  </form>
+</div>
+{% endblock %}

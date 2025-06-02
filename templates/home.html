@@ -1,0 +1,13 @@
+{% extends 'base.html' %}
+{% block title %}Painel Principal{% endblock %}
+{% block content %}
+<div class="container text-center py-5">
+  <h1 class="mb-4">Dashboard Reobote 2025</h1>
+  <p class="mb-4">Escolha abaixo a seção que deseja acessar:</p>
+
+  <div class="d-flex justify-content-center gap-4">
+    <a href="/consultores" class="btn btn-outline-primary btn-lg px-5">Painel de Consultores</a>
+    <a href="/propagandas" class="btn btn-outline-success btn-lg px-5">Gerenciar Propagandas</a>
+  </div>
+</div>
+{% endblock %}

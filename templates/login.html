@@ -1,0 +1,17 @@
+{% extends 'base.html' %}
+{% block title %}Login{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-center align-items-center" style="min-height: 70vh;">
+  <div class="card shadow p-4" style="width: 100%; max-width: 400px;">
+    <h4 class="text-center mb-4">Acesso ao Painel</h4>
+    <form method="post">
+      <div class="mb-3">
+        <label for="senha" class="form-label">Senha</label>
+        <input type="password" class="form-control" id="senha" name="senha" required autofocus>
+      </div>
+      <button type="submit" class="btn btn-dark w-100">Entrar</button>
+    </form>
+  </div>
+</div>
+{% endblock %}
