@@ -301,8 +301,9 @@ def novoConsultor():
 def campanhas():
     if not session.get('logado'):
         return redirect('/')
-    
+
     if request.method == 'POST':
+        campanha_id = request.form.get('campanha_id')
         nome = request.form['nome']
         data_inicio = datetime.strptime(request.form['data_inicio'], '%Y-%m-%d')
         data_fim = datetime.strptime(request.form['data_fim'], '%Y-%m-%d')
@@ -310,14 +311,50 @@ def campanhas():
         origem = OrigemDados[request.form['origem']]
         ativo = 'ativo' in request.form
 
-        nova = Campanha(nome=nome, data_inicio=data_inicio, data_fim=data_fim, meta=meta, origem=origem, ativo=ativo)
-        db.session.add(nova)
+        if campanha_id:
+            # Atualizar campanha existente
+            campanha = Campanha.query.get_or_404(int(campanha_id))
+            campanha.nome = nome
+            campanha.data_inicio = data_inicio
+            campanha.data_fim = data_fim
+            campanha.meta = meta
+            campanha.origem = origem
+            campanha.ativo = ativo
+            flash("Campanha atualizada com sucesso.")
+        else:
+            # Criar nova campanha
+            nova = Campanha(
+                nome=nome,
+                data_inicio=data_inicio,
+                data_fim=data_fim,
+                meta=meta,
+                origem=origem,
+                ativo=ativo
+            )
+            db.session.add(nova)
+            flash("Campanha criada com sucesso.")
+
         db.session.commit()
-        flash("Campanha criada com sucesso.")
         return redirect('/campanhas')
 
     campanhas = Campanha.query.order_by(Campanha.data_inicio.desc()).all()
     return render_template('campanhas.html', campanhas=campanhas)
+
+@app.route('/campanha/editar/<int:id>', methods=['GET'])
+def editar_campanha(id):
+    if not session.get('logado'):
+        return redirect('/')
+
+    campanha_edit = Campanha.query.get_or_404(id)
+    campanhas = Campanha.query.order_by(Campanha.data_inicio.desc()).all()
+    return render_template('campanhas.html', campanha_edit=campanha_edit, campanhas=campanhas)
+
+@app.route('/campanha/toggle/<int:id>', methods=['POST'])
+def toggle_campanha(id):
+    campanha = Campanha.query.get_or_404(id)
+    campanha.ativo = not campanha.ativo
+    db.session.commit()
+    return redirect('/campanhas')
 
 if __name__ == '__main__':
     with app.app_context():
