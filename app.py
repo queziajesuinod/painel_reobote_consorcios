@@ -1,14 +1,16 @@
 from flask import Flask, render_template, request, redirect, session, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_bootstrap import Bootstrap
-from models import db, Consultor, Propaganda
+from models import db, Consultor, Propaganda, Campanha, OrigemDados
 from dotenv import load_dotenv
 from conectar_cotas import conectar_cotas
 from utils_agendor import fetch_deal_data, fetch_deal_meta, params_ganhos, params_prospeccao, params_quentes, API_URL, API_TOKEN, meses
 from dateutil import parser
 from collections import defaultdict
 from datetime import datetime
+from flask import flash
 import os, base64
+
 
 load_dotenv()
 
@@ -32,6 +34,66 @@ def format_valor(valor):
         return f"{valor/1_000:.0f}K"
     return f"{valor:.0f}"
 app.jinja_env.filters['format_valor'] = format_valor
+
+def converter_data_brasileira(data_str):
+    if not data_str or str(data_str).strip() == '':
+        return None  # ou pd.NaT, se quiser manter no padrão do pandas
+    try:
+        return datetime.strptime(data_str, "%d/%m/%Y").date()
+    except:
+        try:
+            return parser.parse(data_str).date()
+        except:
+            return None
+
+def calcular_progresso_campanha():
+    campanha = Campanha.query.first()
+    if not campanha:
+        return 0, '', 'secondary', None, None
+
+    inicio = campanha.data_inicio
+    fim = campanha.data_fim
+    origem = campanha.origem
+    meta = campanha.meta
+
+    # Garantir que as datas da campanha estejam no tipo date
+    if isinstance(inicio, str):
+        inicio = parser.parse(inicio).date()
+    if isinstance(fim, str):
+        fim = parser.parse(fim).date()
+
+    valor_total = 0
+    ano_atual = datetime.now().year
+
+    if origem.value.strip().upper() == 'AGENDOR':
+        ganhos = fetch_deal_data(API_URL, API_TOKEN, params_ganhos)
+        def data_agendor_valida(data_str):
+            try:
+                data = parser.parse(data_str).date()
+                return inicio <= data <= fim
+            except:
+                return False
+        ganhos_periodo = [
+            g for g in ganhos if g.get('Data Final') and data_agendor_valida(g['Data Final'])
+        ]
+        valor_total = sum(g['Valor do Negócio'] for g in ganhos_periodo)
+
+    elif origem.value.strip().upper() == 'COTAS':
+        cotas = conectar_cotas()
+        cotas['DATA'] = cotas['DATA'].apply(converter_data_brasileira)
+        cotas = cotas[cotas['DATA'].notna()]  # Remove datas inválidas
+        cotas = cotas[cotas['ANO'] == ano_atual] 
+      
+        valor_total = cotas[
+            (cotas['DATA'] >= inicio) & (cotas['DATA'] <= fim)
+        ]['VALOR TOTAL'].sum()
+        print(valor_total)
+
+    porcentagem = (valor_total * 100) / meta if meta else 0
+    cor = 'danger' if porcentagem < 30 else 'warning' if porcentagem < 70 else 'success'
+    texto = f"{porcentagem:.2f}%" if porcentagem >= 5 else ""
+
+    return porcentagem, texto, cor, valor_total, meta
 
 @app.route('/', methods=['GET', 'POST'])
 def login():
@@ -86,6 +148,7 @@ def analytics():
         }
 
     porcentagem_churras, texto_churras, cor_churras = update_progress(ganhos, mes_atual, ano_atual)
+    porcentagem_campanha, texto_campanha, cor_campanha, valor_atual, meta_campanha = calcular_progresso_campanha()
 
     agregado = defaultdict(lambda: {'nome': None, 'total': 0})
     for g in ganhos_mes:
@@ -120,7 +183,13 @@ def analytics():
                            ultima_consultora=ultima_consultora,
                            prospeccao=prospeccao,
                            quentes=quentes,
-                           ranking=ranking)
+                           ranking=ranking,
+                           valor_atual=valor_atual,
+                           meta_campanha=meta_campanha,
+                           campanha_ativa=Campanha.query.filter_by(ativo=True).first(),
+                           porcentagem_campanha=porcentagem_campanha,
+                           texto_campanha=texto_campanha,
+                           cor_campanha=cor_campanha)
 
 @app.route('/verificar-novas-vendas')
 def verificar_novas_vendas():
@@ -188,6 +257,13 @@ def toggle_consultor(id):
     db.session.commit()
     return redirect('/consultores')
 
+@app.route('/consultor/deletar/<int:id>', methods=['POST'])
+def deletar_consultor(id):
+    consultor = Consultor.query.get_or_404(id)
+    db.session.delete(consultor)
+    db.session.commit()
+    return redirect('/consultores')
+
 @app.route('/consultor/editar/<int:id>', methods=['GET', 'POST'])
 def editarConsultor(id):
     consultor = Consultor.query.get_or_404(id)
@@ -221,8 +297,30 @@ def novoConsultor():
     db.session.commit()
     return redirect('/consultores')
 
+@app.route('/campanhas', methods=['GET', 'POST'])
+def campanhas():
+    if not session.get('logado'):
+        return redirect('/')
+    
+    if request.method == 'POST':
+        nome = request.form['nome']
+        data_inicio = datetime.strptime(request.form['data_inicio'], '%Y-%m-%d')
+        data_fim = datetime.strptime(request.form['data_fim'], '%Y-%m-%d')
+        meta = float(request.form['meta'])
+        origem = OrigemDados[request.form['origem']]
+        ativo = 'ativo' in request.form
+
+        nova = Campanha(nome=nome, data_inicio=data_inicio, data_fim=data_fim, meta=meta, origem=origem, ativo=ativo)
+        db.session.add(nova)
+        db.session.commit()
+        flash("Campanha criada com sucesso.")
+        return redirect('/campanhas')
+
+    campanhas = Campanha.query.order_by(Campanha.data_inicio.desc()).all()
+    return render_template('campanhas.html', campanhas=campanhas)
+
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
-    app.run(host='0.0.0.0', port=8182, debug=False)
+    app.run(host='0.0.0.0', port=8182, debug=True)
 
