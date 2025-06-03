@@ -25,6 +25,14 @@ db.init_app(app)
 def inject_current_year():
     return {'current_year': datetime.now().year}
 
+def format_valor(valor):
+    if valor >= 1_000_000:
+        return f"{valor/1_000_000:.1f}M"
+    elif valor >= 1_000:
+        return f"{valor/1_000:.0f}K"
+    return f"{valor:.0f}"
+app.jinja_env.filters['format_valor'] = format_valor
+
 @app.route('/', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST' and request.form['senha'] == 'admin123':
