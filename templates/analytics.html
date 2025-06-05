@@ -27,21 +27,16 @@
             object-fit: cover;
         }
 
-        .img-ranking {
-            width: 50px;
-            height: 50px;
-        }
-
         .img-ultima-venda {
-            width: 90px;
-            height: 90px;
+            width: 70px;
+            height: 70px;
         }
 
 
         .ranking-item {
             background-color: #2c2f33;
             border-radius: 10px;
-            padding: 10px;
+            padding: 5px;
             margin-bottom: 10px;
         }
 
@@ -69,16 +64,16 @@
         }
 
         .ranking-item .profile-img {
-            width: 110px;
-            height: 110px;
+            width: 90px;
+            height: 90px;
             object-fit: cover;
             border-radius: 50%;
             border: 4px solid #ddd;
         }
 
         .ranking-item .sem-foto {
-            width: 110px;
-            height: 110px;
+            width: 90px;
+            height: 90px;
             background: #eee;
             border-radius: 50%;
             display: flex;
@@ -105,11 +100,11 @@
         }
 
         .ranking-item.segundo {
-            margin-bottom: 20px;
+            margin-bottom: 10px;
         }
 
         .ranking-item.terceiro {
-            margin-bottom: 40px;
+            margin-bottom: 30px;
         }
 
         .ranking-item .coroa {
@@ -175,16 +170,16 @@
 
             <!-- Indicadores -->
             <div class="col-lg-4">
-                <div class="card  text-white mb-3">
+                <div class="card  text-white mb-2">
                     <div class="card-body">
                         <div class="row text-center">
                             <div class="col">
                                 <h6>Vendas Anual</h6>
-                                <h5>R$ {{ vendas_anuais | format_valor}}</h5>
+                                <h6>R$ {{ vendas_anuais | format_valor}}</h5>
                             </div>
                             <div class="col">
                                 <h6>Vendas Anual Cotas</h6>
-                                <h5>R$ {{ vendas_cotas | format_valor }}</h5>
+                                <h6>R$ {{ vendas_cotas | format_valor }}</h5>
                             </div>
                         </div>
                         <div class="row text-center">
@@ -209,7 +204,7 @@
                         <hr>
                         <h6>Última Venda:</h6>
                         {% if ultima_consultora %}
-                        <div class="d-flex align-items-center mb-3">
+                        <div class="d-flex align-items-center mb-2">
                             {% if ultima_consultora.imagem_base64 %}
                             <img src="data:image/png;base64,{{ ultima_consultora.imagem_base64 }}"
                                 class="rounded-circle img-ultima-venda me-3">
@@ -218,46 +213,44 @@
                             {% endif %}
                             <div style="text-align: center;">
                                 <strong>{{ ultima_consultora.nome }}</strong><br>
-                                Data de Fechamento: {{ ultima_consultora.data }}<br>
-                                <span class="h3">R$ {{ ultima_consultora.valor | format_valor }}</span>
+                               <small>Data de Fechamento: {{ ultima_consultora.data }}</small><br>
+                                <span class="h4">R$ {{ ultima_consultora.valor | format_valor }}</span>
                             </div>
                         </div>
                         {% else %}
                         <p>Sem vendas este mês</p>
                         {% endif %}
-
-
-
                     </div>
                 </div>
 
                 <!-- Prospecção e Quentes -->
-                <div class="row text-center mb-4">
+                <div class="row text-center">
                     <div class="col-6">
-                        <h5>Prospecção</h5>
+                        <h6>Prospecção</h6>
                         <p class="display-6">{{ prospeccao }}</p>
                     </div>
                     <div class="col-6">
-                        <h5>Quentes</h5>
+                        <h6>Quentes</h6>
                         <p class="display-6">{{ quentes }}</p>
                     </div>
                 </div>
-
+                <hr>
                 {% if campanha_ativa %}
-                <div class="row text-center mb-4">
-                    <h6>Campanha {{ campanha_ativa.nome }} </h6>
-                   <p>Meta: R$ {{ meta_campanha | format_valor }} — Atual: R$ {{ valor_atual | format_valor }}
+                <div class="row">
+                    <h6 class="text-center">Campanha {{ campanha_ativa.nome }} </h6>
+                    <p class="text-center">Meta: R$ {{ meta_campanha | format_valor }} — Atual: R$ {{ valor_atual |
+                        format_valor }}
                     </p>
-                    <div class="progress" style="height: 20px;">
-                        <div class="progress-bar bg-{{ cor_campanha }}" role="progressbar"
-                            style="width: {{ porcentagem_campanha }}%;" aria-valuenow="{{ porcentagem_campanha }}"
-                            aria-valuemin="0" aria-valuemax="100">
-                            {{ texto_campanha }}
-                        </div>
+                </div>
+                <div class="progress">
+                    <div class="progress-bar bg-{{ cor_campanha }}" role="progressbar"
+                        style="width: {{ porcentagem_campanha }}%;" aria-valuenow="{{ porcentagem_campanha }}"
+                        aria-valuemin="0" aria-valuemax="100">
+                        {{ texto_campanha }}
                     </div>
                 </div>
                 {% endif %}
-
+                <hr>
 
                 <!-- Ranking -->
                 <div>
