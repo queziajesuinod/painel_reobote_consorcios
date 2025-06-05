@@ -95,18 +95,6 @@
             font-size: 14px;
         }
 
-        .ranking-item.campeao {
-            margin-bottom: 0;
-        }
-
-        .ranking-item.segundo {
-            margin-bottom: 10px;
-        }
-
-        .ranking-item.terceiro {
-            margin-bottom: 30px;
-        }
-
         .ranking-item .coroa {
             width: 45px;
             position: absolute;
@@ -213,7 +201,7 @@
                             {% endif %}
                             <div style="text-align: center;">
                                 <strong>{{ ultima_consultora.nome }}</strong><br>
-                               <small>Data de Fechamento: {{ ultima_consultora.data }}</small><br>
+                                <small>Data de Fechamento: {{ ultima_consultora.data }}</small><br>
                                 <span class="h4">R$ {{ ultima_consultora.valor | format_valor }}</span>
                             </div>
                         </div>
@@ -257,12 +245,12 @@
                     <h5>Ranking de Empresas Parceiras</h5>
                     {% set ordem_podio = [1, 0, 2] %}
                     <div class="ranking-container"
-                        style="display: flex; justify-content: center; gap: 20px; margin-top: 20px;">
+                        style="display: flex; justify-content: center; align-items: flex-end; gap: 20px; margin-top: 20px;">
                         {% for i in ordem_podio %}
                         {% if ranking | length > i %}
                         {% set r = ranking[i] %}
-                        <div style="text-align: center; position: relative;
-                margin-top: {% if i == 0 %}0{% elif i == 1 %}20px{% else %}40px{% endif %};">
+                    <div style="text-align: center; position: relative;
+    margin-bottom: {% if i == 0 %}30px{% elif i == 1 %}15px{% else %}0{% endif %};">
 
                             {% if i == 0 %}
                             <img src="{{ url_for('static', filename='coroa.png') }}" alt="Coroa"
@@ -274,7 +262,7 @@
                                 style="width: 100px; height: 100px; object-fit: cover; border-radius: 50%; border: 3px solid #ccc;">
                             {% else %}
                             <div style="width: 100px; height: 100px; background: #ddd; border-radius: 50%;
-                    display: flex; align-items: center; justify-content: center;">
+                        display: flex; align-items: center; justify-content: center;">
                                 Sem foto
                             </div>
                             {% endif %}
@@ -286,6 +274,7 @@
                         {% endfor %}
                     </div>
                 </div>
+
 
 
 
