@@ -38,6 +38,17 @@ def format_valor(valor):
     return f"{valor:.0f}"
 app.jinja_env.filters['format_valor'] = format_valor
 
+
+def parse_dt_safe(s):
+    if not s or (isinstance(s, str) and not s.strip()):
+        return None
+    try:
+        from dateutil import parser as _p
+        return _p.parse(s)
+    except Exception:
+        return None
+
+
 def converter_data_brasileira(data_str):
     if not data_str or str(data_str).strip() == '':
         return None  # ou pd.NaT, se quiser manter no padrão do pandas
@@ -139,7 +150,8 @@ def analytics():
     vendas_cotas = cotas[cotas['ANO'] == ano_atual]['VALOR TOTAL'].sum()
     vendas_mes = sum(g['Valor do Negócio'] for g in ganhos_mes)
 
-    ultima = max(ganhos_mes, key=lambda g: parser.parse(g['Data Ganho']), default=None)
+    ganhos_mes_com_ganho = [g for g in ganhos_mes if parse_dt_safe(g.get('Data Ganho'))]
+    ultima = max(ganhos_mes_com_ganho, key=lambda g: parse_dt_safe(g['Data Ganho']), default=None)
     ultima_consultora = None
     if ultima:
         consultor = Consultor.query.filter_by(id_agendor=str(ultima['ConsultorId'])).first()
@@ -201,7 +213,8 @@ def verificar_novas_vendas():
     ano_atual = datetime.now().year
 
     ganhos_mes = [g for g in ganhos if g['Data Final'] and parser.parse(g['Data Final']).month == mes_atual and parser.parse(g['Data Final']).year == ano_atual]
-    ultima = max(ganhos_mes, key=lambda g: parser.parse(g['Data Ganho']), default=None)
+    ganhos_mes_com_ganho = [g for g in ganhos_mes if parse_dt_safe(g.get('Data Ganho'))]
+    ultima = max(ganhos_mes_com_ganho, key=lambda g: parse_dt_safe(g['Data Ganho']), default=None)
     if not ultima:
         return jsonify({'temNovaVenda': False})
 
