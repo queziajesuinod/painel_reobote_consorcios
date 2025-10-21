@@ -10,6 +10,7 @@ from collections import defaultdict
 from datetime import datetime
 from flask import flash
 import os, base64
+import pandas as pd
 
 
 load_dotenv()
@@ -93,7 +94,25 @@ def calcular_progresso_campanha():
         valor_total = sum(g['Valor do Negócio'] for g in ganhos_periodo)
 
     elif origem.value.strip().upper() == 'COTAS':
-        cotas = conectar_cotas()
+        try:
+            cotas = conectar_cotas()
+
+            # Caso retorne None, substitui por DataFrame vazio
+            if cotas is None or not hasattr(cotas, "columns"):
+                print("⚠️ conectar_cotas() retornou None ou objeto inválido — criando DataFrame vazio.")
+                cotas = pd.DataFrame(columns=['ANO', 'VALOR TOTAL'])
+
+            # Garante que a coluna ANO existe
+            if 'ANO' not in cotas.columns:
+                cotas['ANO'] = 0
+
+            # Garante que VALOR TOTAL exista para evitar erro no .sum()
+            if 'VALOR TOTAL' not in cotas.columns:
+                cotas['VALOR TOTAL'] = 0
+
+        except Exception as e:
+            print(f"⚠️ Erro ao conectar cotas: {e}")
+            cotas = pd.DataFrame(columns=['ANO', 'DATA', 'VALOR TOTAL'])
         cotas['DATA'] = cotas['DATA'].apply(converter_data_brasileira)
         cotas = cotas[cotas['DATA'].notna()]  # Remove datas inválidas
         cotas = cotas[cotas['ANO'] == ano_atual] 
@@ -136,7 +155,26 @@ def analytics():
     if not session.get('logado'):
         return redirect('/')
 
-    cotas = conectar_cotas()
+    try:
+        cotas = conectar_cotas()
+
+        # Caso retorne None, substitui por DataFrame vazio
+        if cotas is None or not hasattr(cotas, "columns"):
+            print("⚠️ conectar_cotas() retornou None ou objeto inválido — criando DataFrame vazio.")
+            cotas = pd.DataFrame(columns=['ANO', 'VALOR TOTAL'])
+
+        # Garante que a coluna ANO existe
+        if 'ANO' not in cotas.columns:
+            cotas['ANO'] = 0
+
+        # Garante que VALOR TOTAL exista para evitar erro no .sum()
+        if 'VALOR TOTAL' not in cotas.columns:
+            cotas['VALOR TOTAL'] = 0
+
+    except Exception as e:
+        print(f"⚠️ Erro ao conectar cotas: {e}")
+        cotas = pd.DataFrame(columns=['ANO', 'VALOR TOTAL'])
+
     ganhos = sorted(fetch_deal_data(API_URL, API_TOKEN, params_ganhos), key=lambda x: x['Valor do Negócio'], reverse=True)
     prospeccao = fetch_deal_meta(API_URL, API_TOKEN, params_prospeccao)
     quentes = fetch_deal_meta(API_URL, API_TOKEN, params_quentes)
