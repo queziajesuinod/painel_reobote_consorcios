@@ -11,6 +11,7 @@ class OrigemDados(enum.Enum):
 
 class Campanha(db.Model):
     __tablename__ = 'campanhas_vendas'
+    __table_args__ = {'schema': 'dev'}  
     id = db.Column(db.Integer, primary_key=True)
     nome = db.Column(db.String(100), nullable=False)
     data_inicio = db.Column(db.Date, nullable=False)
@@ -22,6 +23,7 @@ class Campanha(db.Model):
 
 class Consultor(db.Model):
     __tablename__ = 'consultores'
+    __table_args__ = {'schema': 'dev'}  
     id = db.Column(db.Integer, primary_key=True)
     nome = db.Column(db.String(100), nullable=False)
     id_agendor = db.Column(db.String(50), nullable=False)
@@ -30,6 +32,7 @@ class Consultor(db.Model):
 
 class Propaganda(db.Model):
     __tablename__ = 'propagandas'
+    __table_args__ = {'schema': 'dev'}  
     id = db.Column(db.Integer, primary_key=True)
     titulo = db.Column(db.String(100), nullable=False)
     imagem_base64 = db.Column(db.Text, nullable=True)

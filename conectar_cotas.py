@@ -11,7 +11,7 @@ def conectar_cotas():
         SERVICE_ACCOUNT_FILE, scopes=SCOPES)
 
     SPREADSHEET_ID = '1luLlcE7iDl4l6EiSGHI_3lAs8lutqy7Hra1iBdBvdZk'
-    RANGE_NAME = 'Cotas!A1:H'
+    RANGE_NAME = 'Cotas!A1:I'
 
     service = build('sheets', 'v4', credentials=credentials)
     sheet = service.spreadsheets()
