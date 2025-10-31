@@ -144,7 +144,7 @@ def home():
 def update_progress(ganhos, mes_atual, ano_atual):
     df_mes_atual = [g for g in ganhos if g['Data Final'] and parser.parse(g['Data Final']).month == mes_atual and parser.parse(g['Data Final']).year == ano_atual]
     valor_total_mes_atual = sum(g['Valor do Negócio'] for g in df_mes_atual)
-    meta = 20000000
+    meta = 26000000
     porcentagem = (valor_total_mes_atual * 100) / meta if meta else 0
     cor = 'danger' if porcentagem < 30 else 'warning' if porcentagem < 70 else 'success'
     texto = f"{porcentagem:.2f}%" if porcentagem >= 5 else ""
