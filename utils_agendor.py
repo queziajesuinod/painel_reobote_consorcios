@@ -12,15 +12,14 @@ API_TOKEN = f"Token {os.getenv('API_TOKEN')}"
 # 📅 Parâmetros de filtros
 ano_atual = datetime.now().year
 mes_atual = datetime.now().month
-primeiro_dia_ano = datetime(ano_atual, 1, 1).strftime('%Y-%m-%dT00:00:00Z')
-ultimo_dia_ano = datetime(ano_atual, 12, 31).strftime('%Y-%m-%dT23:59:59Z')
+primeiro_dia_ano = datetime(ano_atual, 1, 1).strftime('%Y-%m-%d')
+ultimo_dia_ano = datetime(ano_atual, 12, 31).strftime('%Y-%m-%d')
 
 params_ganhos = {
     'page': 1,
     'per_page': 100,
     'dealStatus': 2,  # Ganhos
-    'endAtGt': primeiro_dia_ano,
-    'endAtLt': ultimo_dia_ano
+    'since': primeiro_dia_ano
 }
 
 params_prospeccao = {
@@ -43,37 +42,57 @@ meses = {
 }
 
 # 📥 Função para buscar dados de negócios
-def fetch_deal_data(url, token, params):
+def fetch_deal_data(base_url, token, params):
+    import requests
+
     all_data = []
     current_page = 1
+    headers = {'Authorization': token}
+    url = f"{base_url}/stream"
 
     while True:
         params['page'] = current_page
         try:
-            response = requests.get(url, headers={'Authorization': token}, params=params)
-            data = response.json().get('data', [])
-            if not data:
+            response = requests.get(url, headers=headers, params=params, timeout=20)
+            if response.status_code != 200:
+                print(f"⚠️ Erro da API Agendor: {response.status_code} — {response.text}")
                 break
-            all_data.extend(data)
+
+            data = response.json()
+            registros = data.get('data', [])
+            if not registros:
+                break
+
+            for registro in registros:
+                owner = registro.get('owner') or {}
+                deal_stage = registro.get('dealStage') or {}
+                funnel = deal_stage.get('funnel') or {}
+                deal_status = registro.get('dealStatus') or {}
+
+                all_data.append({
+                    'ID': registro.get('id'),
+                    'Valor do Negócio': registro.get('value', 0) or 0,
+                    'EtapaId': deal_stage.get('id'),
+                    'Etapa': deal_stage.get('name'),
+                    'Funil': funnel.get('name'),
+                    'Status': deal_status.get('name'),
+                    'ConsultorId': owner.get('id') if isinstance(owner, dict) else None,
+                    'Consultor': owner.get('name', 'Sem consultor') if isinstance(owner, dict) else 'Sem consultor',
+                    'Data Final': registro.get('endTime'),
+                    'Data Ganho': registro.get('wonAt')
+                })
+
             current_page += 1
+            print(f"✅ {len(registros)} negócios carregados com sucesso do Agendor (página {current_page - 1})")
+
+            if not data.get('meta') or not data['meta'].get('hasNextPage'):
+                break
+
         except Exception as e:
-            print(f"Erro ao buscar dados: {e}")
+            print(f"❌ Erro ao buscar dados: {e}")
             break
 
-    result = [{
-        'ID': registro['id'],
-        'Valor do Negócio': registro['value'],
-        'EtapaId': registro['dealStage']['id'],
-        'Etapa': registro['dealStage']['name'],
-        'Funil': registro['dealStage']['funnel']['name'],
-        'Status': registro['dealStatus']['name'],
-        'ConsultorId': registro['owner']['id'],
-        'Consultor': registro['owner']['name'],
-        'Data Final': registro.get('endTime', None),
-        'Data Ganho': registro.get('wonAt', None),
-    } for registro in all_data]
-
-    return result
+    return all_data
 
 # 📊 Função para contar registros com base no filtro
 def fetch_deal_meta(url, token, params):
