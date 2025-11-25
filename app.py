@@ -17,13 +17,17 @@ from utils_agendor import (
 from dateutil import parser
 from collections import defaultdict
 from datetime import datetime, time, date, timedelta
-from flask import flash
+from flask import flash, has_app_context
 from sqlalchemy import func, or_
-import os, base64, calendar, unicodedata, hashlib, json
+import os, base64, calendar, unicodedata, hashlib, json, threading
 
 EXCLUDED_CONSULTOR_IDS = {'640301'}
 EXCLUDED_COTA_CONSULTORES = {2}
 
+_dashboard_cache = {'dados': None, 'last_update': None}
+_dashboard_cache_lock = threading.Lock()
+_dashboard_stop_event = threading.Event()
+_dashboard_thread = None
 
 load_dotenv()
 
@@ -192,7 +196,7 @@ def calcular_progresso_campanha():
     ano_atual = datetime.now().year
 
     if origem.value.strip().upper() == 'AGENDOR':
-        ganhos = fetch_deal_data(API_URL, API_TOKEN, params_ganhos)
+        ganhos = fetch_deal_data(params_ganhos)
         ganhos_periodo = []
         for g in ganhos:
             data_ref = data_negocio(g)
@@ -259,14 +263,14 @@ def obter_dashboard_tarefas_dados():
     inicio_mes_dt = ensure_datetime(inicio_mes)
     fim_mes_dt = ensure_datetime(fim_mes, end=True)
 
-    due_inicio = datetime.combine(inicio_mes, time.min).isoformat()
-    due_fim = datetime.combine(fim_mes + timedelta(days=1), time.min).isoformat()
+    due_inicio = datetime.combine(inicio_mes, time.min).strftime('%Y-%m-%dT%H:%M:%SZ')
+    due_fim = datetime.combine(fim_mes + timedelta(days=1), time.min).strftime('%Y-%m-%dT%H:%M:%SZ')
     params_tarefas = {
         'per_page': 100,
         'updatedDateGt': due_inicio,
         'updatedDateLt': due_fim
     }
-    tarefas = fetch_tasks(API_BASE_URL, API_TOKEN, params_tarefas)
+    tarefas = fetch_tasks(params_tarefas)
 
     total_visitas = 0
     total_reunioes = 0
@@ -286,7 +290,7 @@ def obter_dashboard_tarefas_dados():
 
     params_deals = dict(params_ganhos)
     params_deals['since'] = inicio_mes.isoformat()
-    ganhos = fetch_deal_data(API_URL, API_TOKEN, params_deals)
+    ganhos = fetch_deal_data(params_deals)
     ganhos_mes = []
     for g in ganhos:
         if negocio_excluido(g):
@@ -366,14 +370,48 @@ def obter_dashboard_tarefas_dados():
     dados['signature'] = hashlib.md5(json.dumps(dados, sort_keys=True, default=str).encode()).hexdigest()
     return dados
 
+
+def atualizar_cache_dashboard():
+    ctx = None
+    if not has_app_context():
+        ctx = app.app_context()
+        ctx.push()
+    try:
+        dados = obter_dashboard_tarefas_dados()
+        with _dashboard_cache_lock:
+            _dashboard_cache['dados'] = dados
+            _dashboard_cache['last_update'] = datetime.utcnow().isoformat()
+    except Exception as e:
+        print(f"⚠️ Falha ao atualizar cache do dashboard: {e}")
+    finally:
+        if ctx is not None:
+            ctx.pop()
+
+
+def obter_dashboard_cache():
+    with _dashboard_cache_lock:
+        dados = _dashboard_cache.get('dados')
+    if dados is None:
+        dados = obter_dashboard_tarefas_dados()
+        with _dashboard_cache_lock:
+            _dashboard_cache['dados'] = dados
+    return dados
+
+
+def _dashboard_updater_loop(intervalo=600):
+    while not _dashboard_stop_event.is_set():
+        atualizar_cache_dashboard()
+        if _dashboard_stop_event.wait(intervalo):
+            break
+
 @app.route('/analytics')
 def analytics():
     if not session.get('logado'):
         return redirect('/')
 
-    ganhos_brutos = sorted(fetch_deal_data(API_URL, API_TOKEN, params_ganhos), key=lambda x: x['Valor do Negócio'], reverse=True)
-    prospeccao = fetch_deal_meta(API_URL, API_TOKEN, params_prospeccao)
-    quentes = fetch_deal_meta(API_URL, API_TOKEN, params_quentes)
+    ganhos_brutos = sorted(fetch_deal_data(params_ganhos), key=lambda x: x['Valor do Negócio'], reverse=True)
+    prospeccao = fetch_deal_meta(params_prospeccao)
+    quentes = fetch_deal_meta(params_quentes)
 
     ano_atual = datetime.now().year
     mes_atual = datetime.now().month
@@ -465,7 +503,7 @@ def dashboard_tarefas():
     if not session.get('logado'):
         return redirect('/')
 
-    dados = obter_dashboard_tarefas_dados()
+    dados = obter_dashboard_cache()
     return render_template('dashboard_tarefas.html', dados=dados)
 
 
@@ -473,12 +511,12 @@ def dashboard_tarefas():
 def api_dashboard_tarefas():
     if not session.get('logado'):
         return jsonify({'error': 'unauthorized'}), 401
-    dados = obter_dashboard_tarefas_dados()
+    dados = obter_dashboard_cache()
     return jsonify(dados)
 
 @app.route('/verificar-novas-vendas')
 def verificar_novas_vendas():
-    ganhos = fetch_deal_data(API_URL, API_TOKEN, params_ganhos)
+    ganhos = fetch_deal_data(params_ganhos)
     mes_atual = datetime.now().month
     ano_atual = datetime.now().year
 
@@ -647,10 +685,22 @@ def toggle_campanha(id):
     db.session.commit()
     return redirect('/campanhas')
 
+@app.before_request
+def iniciar_atualizador_dashboard():
+    global _dashboard_thread
+    if _dashboard_thread is None:
+        _dashboard_thread = threading.Thread(
+            target=_dashboard_updater_loop,
+            args=(600,),
+            daemon=True
+        )
+        _dashboard_thread.start()
+
 if __name__ == '__main__':
     with app.app_context():
         try:
             db.create_all()
         except Exception as e:
             print(f"⚠️ Não foi possível criar/verificar tabelas: {e}")
+    iniciar_atualizador_dashboard()
     app.run(host='0.0.0.0', port=8182, debug=False)

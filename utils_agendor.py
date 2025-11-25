@@ -1,5 +1,6 @@
 import requests
 import os
+import time
 from datetime import datetime
 from dotenv import load_dotenv
 
@@ -43,20 +44,22 @@ meses = {
 }
 
 # 📥 Função para buscar dados de negócios
-def fetch_deal_data(base_url, token, params):
-    import requests
-
+def fetch_deal_data(params):
     all_data = []
     current_page = 1
     base_params = dict(params or {})
-    headers = {'Authorization': token}
-    url = f"{base_url}/stream"
+    headers = {'Authorization': API_TOKEN}
+    url = f"{API_URL}/stream"
 
     while True:
         query_params = dict(base_params)
         query_params['page'] = current_page
         try:
             response = requests.get(url, headers=headers, params=query_params, timeout=20)
+            if response.status_code == 429:
+                print("⚠️ API Agendor (deals) retornou 429, aguardando 1s antes de tentar novamente...")
+                time.sleep(1)
+                continue
             if response.status_code != 200:
                 print(f"⚠️ Erro da API Agendor: {response.status_code} — {response.text}")
                 break
@@ -94,6 +97,7 @@ def fetch_deal_data(base_url, token, params):
                 break
 
             current_page += 1
+            time.sleep(0.2)
 
         except Exception as e:
             print(f"❌ Erro ao buscar dados: {e}")
@@ -102,12 +106,10 @@ def fetch_deal_data(base_url, token, params):
     return all_data
 
 
-def fetch_tasks(base_url, token, params):
-    import requests
-
+def fetch_tasks(params):
     all_tasks = []
-    headers = {'Authorization': token}
-    base_endpoint = f"{base_url.rstrip('/')}/tasks"
+    headers = {'Authorization': API_TOKEN}
+    base_endpoint = f"{API_BASE_URL}/tasks"
     next_url = base_endpoint
     next_params = dict(params or {})
     page = 1
@@ -122,6 +124,10 @@ def fetch_tasks(base_url, token, params):
                 params=request_params,
                 timeout=20
             )
+            if response.status_code == 429:
+                print("⚠️ API Agendor (tasks) retornou 429, aguardando 1s antes de tentar novamente...")
+                time.sleep(1)
+                continue
             if response.status_code != 200:
                 print(f"⚠️ Erro da API Agendor (tasks): {response.status_code} — {response.text}")
                 break
@@ -161,6 +167,7 @@ def fetch_tasks(base_url, token, params):
                 next_url = next_link
                 next_params = None
                 page += 1
+                time.sleep(0.2)
             else:
                 break
 
@@ -171,7 +178,7 @@ def fetch_tasks(base_url, token, params):
     return all_tasks
 
 # 📊 Função para contar registros com base no filtro
-def fetch_deal_meta(url, token, params):
-    response = requests.get(url, headers={'Authorization': token}, params=params)
+def fetch_deal_meta(params):
+    response = requests.get(API_URL, headers={'Authorization': API_TOKEN}, params=params)
     data = response.json().get('meta', {})
     return data.get('totalCount', 0)
