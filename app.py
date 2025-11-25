@@ -320,7 +320,7 @@ def obter_dashboard_tarefas_dados():
             Cota.consultor_id,
             func.coalesce(func.sum(Cota.valor), 0).label('total')
         )
-        .filter(Cota.x >= inicio_mes_dt)
+        .filter(Cota.data_aquisicao >= inicio_mes_dt)
         .filter(Cota.data_aquisicao <= fim_mes_dt)
     )
     if EXCLUDED_COTA_CONSULTORES:
@@ -645,5 +645,8 @@ def toggle_campanha(id):
 
 if __name__ == '__main__':
     with app.app_context():
-        db.create_all()
+        try:
+            db.create_all()
+        except Exception as e:
+            print(f"⚠️ Não foi possível criar/verificar tabelas: {e}")
     app.run(host='0.0.0.0', port=8182, debug=False)
