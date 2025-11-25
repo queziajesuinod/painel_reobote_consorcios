@@ -1,16 +1,28 @@
 from flask import Flask, render_template, request, redirect, session, jsonify
-from flask_sqlalchemy import SQLAlchemy
 from flask_bootstrap import Bootstrap
-from models import db, Consultor, Propaganda, Campanha, OrigemDados
+from models import db, Consultor, Propaganda, Campanha, OrigemDados, Cota, Meta
 from dotenv import load_dotenv
-from conectar_cotas import conectar_cotas
-from utils_agendor import fetch_deal_data, fetch_deal_meta, params_ganhos, params_prospeccao, params_quentes, API_URL, API_TOKEN, meses
+from utils_agendor import (
+    fetch_deal_data,
+    fetch_deal_meta,
+    fetch_tasks,
+    params_ganhos,
+    params_prospeccao,
+    params_quentes,
+    API_BASE_URL,
+    API_URL,
+    API_TOKEN,
+    meses
+)
 from dateutil import parser
 from collections import defaultdict
-from datetime import datetime
+from datetime import datetime, time, date, timedelta
 from flask import flash
-import os, base64
-import pandas as pd
+from sqlalchemy import func, or_
+import os, base64, calendar, unicodedata
+
+EXCLUDED_CONSULTOR_IDS = {'640301'}
+EXCLUDED_COTA_CONSULTORES = {2}
 
 
 load_dotenv()
@@ -50,16 +62,113 @@ def parse_dt_safe(s):
         return None
 
 
-def converter_data_brasileira(data_str):
-    if not data_str or str(data_str).strip() == '':
-        return None  # ou pd.NaT, se quiser manter no padrão do pandas
-    try:
-        return datetime.strptime(data_str, "%d/%m/%Y").date()
-    except:
+def data_negocio(negocio):
+    if not negocio:
+        return None
+    return parse_dt_safe(negocio.get('Data Ganho') or negocio.get('Data Final') or negocio.get('endTime') or negocio.get('end_time'))
+
+
+def negocio_excluido(negocio):
+    if not negocio:
+        return False
+    consultor_id = negocio.get('ConsultorId')
+    return consultor_id is not None and str(consultor_id) in EXCLUDED_CONSULTOR_IDS
+
+
+def data_no_intervalo(data_ref, inicio, fim):
+    if not data_ref:
+        return False
+    data_base = data_ref.date() if isinstance(data_ref, datetime) else data_ref
+    return inicio <= data_base <= fim
+
+
+def gerar_semanas_periodo(inicio, fim):
+    semanas = []
+    atual = inicio
+    while atual <= fim:
+        semana_inicio = atual
+        semana_fim = min(semana_inicio + timedelta(days=6 - semana_inicio.weekday()), fim)
+        label = f"{semana_inicio.strftime('%d/%m')} - {semana_fim.strftime('%d/%m')}"
+        semanas.append({
+            'inicio': semana_inicio,
+            'fim': semana_fim,
+            'label': label
+        })
+        atual = semana_fim + timedelta(days=1)
+    return semanas
+
+
+def normalize_task_type(tipo):
+    if not tipo:
+        return ''
+    if not isinstance(tipo, str):
+        tipo = str(tipo)
+    normalized = unicodedata.normalize('NFKD', tipo)
+    normalized = ''.join(ch for ch in normalized if not unicodedata.combining(ch))
+    return normalized.strip().upper()
+
+
+def ensure_datetime(value, end=False):
+    if value is None:
+        return None
+    if isinstance(value, str):
+        value = parser.parse(value)
+    if isinstance(value, datetime):
+        if end:
+            return value.replace(hour=23, minute=59, second=59, microsecond=999999)
+        return value
+    return datetime.combine(value, time.max if end else time.min)
+
+
+def ensure_date(value):
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return value.date()
+    if isinstance(value, date):
+        return value
+    if isinstance(value, str):
         try:
-            return parser.parse(data_str).date()
-        except:
+            return parser.parse(value).date()
+        except Exception:
             return None
+    return value
+
+
+def total_cotas(ano=None, inicio=None, fim=None, campo='valor_total', exclude_consultores=None):
+    coluna = getattr(Cota, campo, Cota.valor_total)
+    query = db.session.query(func.coalesce(func.sum(coluna), 0))
+    if ano is not None:
+        query = query.filter(func.extract('year', Cota.data_aquisicao) == ano)
+    if inicio is not None:
+        query = query.filter(Cota.data_aquisicao >= inicio)
+    if fim is not None:
+        query = query.filter(Cota.data_aquisicao <= fim)
+    if exclude_consultores:
+        query = query.filter(~Cota.consultor_id.in_(tuple(exclude_consultores)))
+    total = query.scalar()
+    return float(total or 0)
+
+
+def obter_meta_vigente(inicio=None, fim=None):
+    inicio_date = ensure_date(inicio)
+    fim_date = ensure_date(fim)
+
+    if inicio_date is None and fim_date is None:
+        hoje = datetime.now().date()
+        inicio_date = hoje
+        fim_date = hoje
+    elif inicio_date is None:
+        inicio_date = fim_date
+    elif fim_date is None:
+        fim_date = inicio_date
+
+    query = Meta.query.filter(Meta.data_inicio <= fim_date)
+    query = query.filter(or_(Meta.data_fim.is_(None), Meta.data_fim >= inicio_date))
+    meta = query.order_by(Meta.data_inicio.desc()).first()
+    if meta and meta.valor is not None:
+        return float(meta.valor)
+    return None
 
 def calcular_progresso_campanha():
     campanha = Campanha.query.first()
@@ -69,7 +178,9 @@ def calcular_progresso_campanha():
     inicio = campanha.data_inicio
     fim = campanha.data_fim
     origem = campanha.origem
-    meta = campanha.meta
+    meta = obter_meta_vigente(inicio, fim)
+    if meta is None:
+        meta = campanha.meta
 
     # Garantir que as datas da campanha estejam no tipo date
     if isinstance(inicio, str):
@@ -82,45 +193,25 @@ def calcular_progresso_campanha():
 
     if origem.value.strip().upper() == 'AGENDOR':
         ganhos = fetch_deal_data(API_URL, API_TOKEN, params_ganhos)
-        def data_agendor_valida(data_str):
-            try:
-                data = parser.parse(data_str).date()
-                return inicio <= data <= fim
-            except:
-                return False
-        ganhos_periodo = [
-            g for g in ganhos if g.get('Data Final') and data_agendor_valida(g['Data Final'])
-        ]
+        ganhos_periodo = []
+        for g in ganhos:
+            data_ref = data_negocio(g)
+            if data_ref and inicio <= data_ref.date() <= fim:
+                ganhos_periodo.append(g)
         valor_total = sum(g['Valor do Negócio'] for g in ganhos_periodo)
 
     elif origem.value.strip().upper() == 'COTAS':
+        inicio_dt = ensure_datetime(inicio)
+        fim_dt = ensure_datetime(fim, end=True)
         try:
-            cotas = conectar_cotas()
-
-            # Caso retorne None, substitui por DataFrame vazio
-            if cotas is None or not hasattr(cotas, "columns"):
-                print("⚠️ conectar_cotas() retornou None ou objeto inválido — criando DataFrame vazio.")
-                cotas = pd.DataFrame(columns=['ANO', 'VALOR TOTAL'])
-
-            # Garante que a coluna ANO existe
-            if 'ANO' not in cotas.columns:
-                cotas['ANO'] = 0
-
-            # Garante que VALOR TOTAL exista para evitar erro no .sum()
-            if 'VALOR TOTAL' not in cotas.columns:
-                cotas['VALOR TOTAL'] = 0
-
+            valor_total = total_cotas(
+                ano=ano_atual,
+                inicio=inicio_dt,
+                fim=fim_dt
+            )
         except Exception as e:
-            print(f"⚠️ Erro ao conectar cotas: {e}")
-            cotas = pd.DataFrame(columns=['ANO', 'DATA', 'VALOR TOTAL'])
-        cotas['DATA'] = cotas['DATA'].apply(converter_data_brasileira)
-        cotas = cotas[cotas['DATA'].notna()]  # Remove datas inválidas
-        cotas = cotas[cotas['ANO'] == ano_atual] 
-      
-        valor_total = cotas[
-            (cotas['DATA'] >= inicio) & (cotas['DATA'] <= fim)
-        ]['VALOR TOTAL'].sum()
-        print(valor_total)
+            print(f"⚠️ Erro ao consultar cotas no banco: {e}")
+            valor_total = 0
 
     porcentagem = (valor_total * 100) / meta if meta else 0
     cor = 'danger' if porcentagem < 30 else 'warning' if porcentagem < 70 else 'success'
@@ -142,61 +233,177 @@ def home():
     return render_template('home.html')
 
 def update_progress(ganhos, mes_atual, ano_atual):
-    df_mes_atual = [g for g in ganhos if g['Data Final'] and parser.parse(g['Data Final']).month == mes_atual and parser.parse(g['Data Final']).year == ano_atual]
+    df_mes_atual = []
+    for g in ganhos:
+        if negocio_excluido(g):
+            continue
+        data_ref = data_negocio(g)
+        if data_ref and data_ref.month == mes_atual and data_ref.year == ano_atual:
+            df_mes_atual.append(g)
     valor_total_mes_atual = sum(g['Valor do Negócio'] for g in df_mes_atual)
-    meta = 26000000
+    ultimo_dia = calendar.monthrange(ano_atual, mes_atual)[1]
+    inicio_mes = date(ano_atual, mes_atual, 1)
+    fim_mes = date(ano_atual, mes_atual, ultimo_dia)
+    meta = obter_meta_vigente(inicio_mes, fim_mes) or 0
     porcentagem = (valor_total_mes_atual * 100) / meta if meta else 0
     cor = 'danger' if porcentagem < 30 else 'warning' if porcentagem < 70 else 'success'
     texto = f"{porcentagem:.2f}%" if porcentagem >= 5 else ""
     return porcentagem, texto, cor
+
+
+def obter_dashboard_tarefas_dados():
+    hoje = datetime.now().date()
+    inicio_mes = hoje.replace(day=1)
+    ultimo_dia = calendar.monthrange(hoje.year, hoje.month)[1]
+    fim_mes = date(hoje.year, hoje.month, ultimo_dia)
+    inicio_mes_dt = ensure_datetime(inicio_mes)
+    fim_mes_dt = ensure_datetime(fim_mes, end=True)
+
+    params_tarefas = {
+        'per_page': 100,
+        'updatedDateGt': inicio_mes.isoformat(),
+        'updatedDateLt': (fim_mes + timedelta(days=1)).isoformat()
+    }
+    tarefas = fetch_tasks(API_BASE_URL, API_TOKEN, params_tarefas)
+
+    total_visitas = 0
+    total_reunioes = 0
+    for tarefa in tarefas:
+        tipo = normalize_task_type(tarefa.get('Tipo'))
+        if tipo == 'VISITA':
+            total_visitas += 1
+        elif tipo == 'REUNIAO':
+            total_reunioes += 1
+
+    params_deals = dict(params_ganhos)
+    params_deals['since'] = inicio_mes.isoformat()
+    ganhos = fetch_deal_data(API_URL, API_TOKEN, params_deals)
+    ganhos_mes = []
+    for g in ganhos:
+        if negocio_excluido(g):
+            continue
+        if data_no_intervalo(data_negocio(g), inicio_mes, fim_mes):
+            ganhos_mes.append(g)
+
+    meta_periodo = obter_meta_vigente(inicio_mes, fim_mes) or 0
+    semanas = gerar_semanas_periodo(inicio_mes, fim_mes)
+    meta_por_semana = meta_periodo / len(semanas) if semanas and meta_periodo else 0
+    serie_semanal = []
+    acumulado_real = 0
+    acumulado_meta = 0
+    total_liquido = 0
+    for semana in semanas:
+        inicio_semana_dt = ensure_datetime(semana['inicio'])
+        fim_semana_dt = ensure_datetime(semana['fim'], end=True)
+        valor_semana = total_cotas(
+            inicio=inicio_semana_dt,
+            fim=fim_semana_dt,
+            campo='valor',
+            exclude_consultores=EXCLUDED_COTA_CONSULTORES
+        )
+        total_liquido += valor_semana
+        acumulado_real += valor_semana
+        acumulado_meta += meta_por_semana
+        serie_semanal.append({
+            'label': semana['label'],
+            'realizado': round(acumulado_real, 2),
+            'meta': round(acumulado_meta, 2)
+        })
+
+    ranking_query = (
+        db.session.query(
+            Cota.consultor_id,
+            func.coalesce(func.sum(Cota.valor), 0).label('total')
+        )
+        .filter(Cota.data_aquisicao >= inicio_mes_dt)
+        .filter(Cota.data_aquisicao <= fim_mes_dt)
+    )
+    if EXCLUDED_COTA_CONSULTORES:
+        ranking_query = ranking_query.filter(~Cota.consultor_id.in_(tuple(EXCLUDED_COTA_CONSULTORES)))
+    ranking_raw = ranking_query.group_by(Cota.consultor_id).all()
+    consultor_ids = [row.consultor_id for row in ranking_raw if row.consultor_id]
+    consultores = {}
+    if consultor_ids:
+        consultores = {c.id: c for c in Consultor.query.filter(Consultor.id.in_(consultor_ids)).all()}
+
+    ranking = []
+    for pos, row in enumerate(sorted(ranking_raw, key=lambda r: float(r.total or 0), reverse=True), start=1):
+        if row.consultor_id is None:
+            nome = 'Sem consultor'
+            imagem = None
+        else:
+            consultor = consultores.get(row.consultor_id)
+            nome = consultor.nome if consultor else f'Consultor #{row.consultor_id}'
+            imagem = consultor.imagem_base64 if consultor and consultor.imagem_base64 else None
+        ranking.append({
+            'posicao': pos,
+            'nome': nome,
+            'valor': float(row.total or 0),
+            'imagem': imagem
+        })
+    ranking = ranking[:5]
+
+    dados = {
+        'periodo_label': f"{inicio_mes.strftime('%d/%m/%Y')} - {fim_mes.strftime('%d/%m/%Y')}",
+        'total_visitas': total_visitas,
+        'total_reunioes': total_reunioes,
+        'negocios_ganhos': len(ganhos_mes),
+        'meta_periodo': round(meta_periodo, 2),
+        'valor_total_liquido': round(total_liquido, 2),
+        'serie_semanal': serie_semanal,
+        'ranking': ranking,
+        'total_tarefas': len(tarefas),
+        'last_updated': datetime.now().isoformat()
+    }
+    return dados
 
 @app.route('/analytics')
 def analytics():
     if not session.get('logado'):
         return redirect('/')
 
-    try:
-        cotas = conectar_cotas()
-
-        # Caso retorne None, substitui por DataFrame vazio
-        if cotas is None or not hasattr(cotas, "columns"):
-            print("⚠️ conectar_cotas() retornou None ou objeto inválido — criando DataFrame vazio.")
-            cotas = pd.DataFrame(columns=['ANO', 'VALOR TOTAL'])
-
-        # Garante que a coluna ANO existe
-        if 'ANO' not in cotas.columns:
-            cotas['ANO'] = 0
-
-        # Garante que VALOR TOTAL exista para evitar erro no .sum()
-        if 'VALOR TOTAL' not in cotas.columns:
-            cotas['VALOR TOTAL'] = 0
-
-    except Exception as e:
-        print(f"⚠️ Erro ao conectar cotas: {e}")
-        cotas = pd.DataFrame(columns=['ANO', 'VALOR TOTAL'])
-
-    ganhos = sorted(fetch_deal_data(API_URL, API_TOKEN, params_ganhos), key=lambda x: x['Valor do Negócio'], reverse=True)
+    ganhos_brutos = sorted(fetch_deal_data(API_URL, API_TOKEN, params_ganhos), key=lambda x: x['Valor do Negócio'], reverse=True)
     prospeccao = fetch_deal_meta(API_URL, API_TOKEN, params_prospeccao)
     quentes = fetch_deal_meta(API_URL, API_TOKEN, params_quentes)
 
     ano_atual = datetime.now().year
     mes_atual = datetime.now().month
     nome_mes = meses[mes_atual]
+    inicio_ano = date(ano_atual, 1, 1)
+    fim_ano = date(ano_atual, 12, 31)
 
-    ganhos_mes = [g for g in ganhos if g['Data Final'] and parser.parse(g['Data Final']).month == mes_atual and parser.parse(g['Data Final']).year == ano_atual]
-    vendas_anuais = sum(g['Valor do Negócio'] for g in ganhos)
-    vendas_cotas = cotas[cotas['ANO'] == ano_atual]['VALOR TOTAL'].sum()
+    ganhos_ano = []
+    for ganho in ganhos_brutos:
+        data_ref = data_negocio(ganho)
+        if data_no_intervalo(data_ref, inicio_ano, fim_ano):
+            ganhos_ano.append((ganho, data_ref))
+
+    ganhos = [g for g, _ in ganhos_ano]
+
+    try:
+        vendas_cotas = total_cotas(ano=ano_atual)
+    except Exception as e:
+        print(f"⚠️ Erro ao consultar cotas no banco: {e}")
+        vendas_cotas = 0
+
+    ganhos_mes = [
+        g for g, data_ref in ganhos_ano
+        if data_ref.month == mes_atual and data_ref.year == ano_atual and not negocio_excluido(g)
+    ]
+    vendas_anuais = sum(g['Valor do Negócio'] for g, _ in ganhos_ano)
     vendas_mes = sum(g['Valor do Negócio'] for g in ganhos_mes)
+    print(f"Vendas anuais: {ganhos_ano}, Vendas mês: {vendas_mes}, Vendas cotas: {vendas_cotas}")
 
-    ganhos_mes_com_ganho = [g for g in ganhos_mes if parse_dt_safe(g.get('Data Ganho'))]
-    ultima = max(ganhos_mes_com_ganho, key=lambda g: parse_dt_safe(g['Data Ganho']), default=None)
+    ganhos_mes_com_data = [g for g in ganhos_mes if data_negocio(g)]
+    ultima = max(ganhos_mes_com_data, key=lambda g: data_negocio(g), default=None)
     ultima_consultora = None
     if ultima:
+        data_ultima = data_negocio(ultima)
         consultor = Consultor.query.filter_by(id_agendor=str(ultima['ConsultorId'])).first()
         ultima_consultora = {
             'nome': ultima['Consultor'],
             'valor': ultima['Valor do Negócio'],
-            'data': parser.parse(ultima['Data Ganho']).strftime('%d/%m/%Y'),
+            'data': data_ultima.strftime('%d/%m/%Y') if data_ultima else '',
             'imagem_base64': consultor.imagem_base64 if consultor else None
         }
 
@@ -243,6 +450,22 @@ def analytics():
                            porcentagem_campanha=porcentagem_campanha,
                            texto_campanha=texto_campanha,
                            cor_campanha=cor_campanha)
+
+@app.route('/dashboard-tarefas')
+def dashboard_tarefas():
+    if not session.get('logado'):
+        return redirect('/')
+
+    dados = obter_dashboard_tarefas_dados()
+    return render_template('dashboard_tarefas.html', dados=dados)
+
+
+@app.route('/api/dashboard-tarefas')
+def api_dashboard_tarefas():
+    if not session.get('logado'):
+        return jsonify({'error': 'unauthorized'}), 401
+    dados = obter_dashboard_tarefas_dados()
+    return jsonify(dados)
 
 @app.route('/verificar-novas-vendas')
 def verificar_novas_vendas():
@@ -359,9 +582,12 @@ def campanhas():
     if request.method == 'POST':
         campanha_id = request.form.get('campanha_id')
         nome = request.form['nome']
-        data_inicio = datetime.strptime(request.form['data_inicio'], '%Y-%m-%d')
-        data_fim = datetime.strptime(request.form['data_fim'], '%Y-%m-%d')
-        meta = float(request.form['meta'])
+        data_inicio = datetime.strptime(request.form['data_inicio'], '%Y-%m-%d').date()
+        data_fim = datetime.strptime(request.form['data_fim'], '%Y-%m-%d').date()
+        meta_valor = obter_meta_vigente(data_inicio, data_fim)
+        if meta_valor is None:
+            flash("Nenhuma meta encontrada para o período informado. A meta será considerada como 0.", "warning")
+            meta_valor = 0
         origem = OrigemDados[request.form['origem']]
         ativo = 'ativo' in request.form
 
@@ -371,7 +597,7 @@ def campanhas():
             campanha.nome = nome
             campanha.data_inicio = data_inicio
             campanha.data_fim = data_fim
-            campanha.meta = meta
+            campanha.meta = meta_valor
             campanha.origem = origem
             campanha.ativo = ativo
             flash("Campanha atualizada com sucesso.")
@@ -381,7 +607,7 @@ def campanhas():
                 nome=nome,
                 data_inicio=data_inicio,
                 data_fim=data_fim,
-                meta=meta,
+                meta=meta_valor,
                 origem=origem,
                 ativo=ativo
             )
@@ -392,7 +618,8 @@ def campanhas():
         return redirect('/campanhas')
 
     campanhas = Campanha.query.order_by(Campanha.data_inicio.desc()).all()
-    return render_template('campanhas.html', campanhas=campanhas)
+    meta_padrao = obter_meta_vigente()
+    return render_template('campanhas.html', campanhas=campanhas, meta_padrao=meta_padrao)
 
 @app.route('/campanha/editar/<int:id>', methods=['GET'])
 def editar_campanha(id):
@@ -401,7 +628,8 @@ def editar_campanha(id):
 
     campanha_edit = Campanha.query.get_or_404(id)
     campanhas = Campanha.query.order_by(Campanha.data_inicio.desc()).all()
-    return render_template('campanhas.html', campanha_edit=campanha_edit, campanhas=campanhas)
+    meta_padrao = obter_meta_vigente(campanha_edit.data_inicio, campanha_edit.data_fim)
+    return render_template('campanhas.html', campanha_edit=campanha_edit, campanhas=campanhas, meta_padrao=meta_padrao)
 
 @app.route('/campanha/toggle/<int:id>', methods=['POST'])
 def toggle_campanha(id):

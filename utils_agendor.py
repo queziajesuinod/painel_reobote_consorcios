@@ -6,7 +6,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # 🔐 Pegando o token do .env
-API_URL = "https://api.agendor.com.br/v3/deals"
+API_BASE_URL = "https://api.agendor.com.br/v3"
+API_URL = f"{API_BASE_URL}/deals"
 API_TOKEN = f"Token {os.getenv('API_TOKEN')}"
 
 # 📅 Parâmetros de filtros
@@ -47,13 +48,15 @@ def fetch_deal_data(base_url, token, params):
 
     all_data = []
     current_page = 1
+    base_params = dict(params or {})
     headers = {'Authorization': token}
     url = f"{base_url}/stream"
 
     while True:
-        params['page'] = current_page
+        query_params = dict(base_params)
+        query_params['page'] = current_page
         try:
-            response = requests.get(url, headers=headers, params=params, timeout=20)
+            response = requests.get(url, headers=headers, params=query_params, timeout=20)
             if response.status_code != 200:
                 print(f"⚠️ Erro da API Agendor: {response.status_code} — {response.text}")
                 break
@@ -82,17 +85,88 @@ def fetch_deal_data(base_url, token, params):
                     'Data Ganho': registro.get('wonAt')
                 })
 
-            current_page += 1
-            print(f"✅ {len(registros)} negócios carregados com sucesso do Agendor (página {current_page - 1})")
+            print(f"✅ {len(registros)} negócios carregados com sucesso do Agendor (página {current_page})")
 
-            if not data.get('meta') or not data['meta'].get('hasNextPage'):
+            links = data.get('links') or {}
+            meta = data.get('meta') or {}
+            has_next = bool(links.get('next')) or bool(meta.get('hasNextPage'))
+            if not has_next:
                 break
+
+            current_page += 1
 
         except Exception as e:
             print(f"❌ Erro ao buscar dados: {e}")
             break
 
     return all_data
+
+
+def fetch_tasks(base_url, token, params):
+    import requests
+
+    all_tasks = []
+    headers = {'Authorization': token}
+    endpoint = f"{base_url.rstrip('/')}/tasks"
+    next_url = endpoint
+    next_params = dict(params or {})
+    page = 1
+
+    while next_url:
+        try:
+            response = requests.get(
+                next_url,
+                headers=headers,
+                params=next_params,
+                timeout=20
+            )
+            if response.status_code != 200:
+                print(f"⚠️ Erro da API Agendor (tasks): {response.status_code} — {response.text}")
+                break
+
+            data = response.json()
+            registros = data.get('data', [])
+            if not registros:
+                break
+
+            for registro in registros:
+                assigned_users = registro.get('assignedUsers')
+                if isinstance(assigned_users, list) and assigned_users:
+                    assigned = assigned_users[0]
+                elif isinstance(assigned_users, dict):
+                    assigned = assigned_users
+                else:
+                    assigned = {}
+                user = registro.get('user') or {}
+                task_type = registro.get('type') or ''
+                all_tasks.append({
+                    'ID': registro.get('id'),
+                    'Tipo': task_type,
+                    'Titulo': registro.get('text') or registro.get('title') or '',
+                    'Data': registro.get('dueDate') or registro.get('datetime') or registro.get('date'),
+                    'FinalizadaEm': registro.get('finishedAt'),
+                    'Concluida': bool(registro.get('finishedAt')),
+                    'DealId': (registro.get('deal') or {}).get('id'),
+                    'ConsultorId': assigned.get('id') or user.get('id'),
+                    'Consultor': assigned.get('name') or user.get('name'),
+                })
+
+            print(f"✅ {len(registros)} tarefas carregadas (página {page})")
+
+            links = data.get('links') or {}
+            next_link = links.get('next')
+            if next_link:
+                next_url = next_link
+                next_params = None
+                page += 1
+            else:
+                break
+
+        except Exception as e:
+            print(f"❌ Erro ao buscar tarefas: {e}")
+            break
+
+    return all_tasks
 
 # 📊 Função para contar registros com base no filtro
 def fetch_deal_meta(url, token, params):

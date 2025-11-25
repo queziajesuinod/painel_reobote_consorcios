@@ -25,9 +25,16 @@
                         value="{{ campanha_edit.data_fim.strftime('%Y-%m-%d') if campanha_edit else '' }}" required>
                 </div>
                 <div class="mb-3">
-                    <label for="meta" class="form-label">Meta de Vendas</label>
-                    <input type="number" step="0.01" id="meta" name="meta" class="form-control"
-                        value="{{ campanha_edit.meta if campanha_edit else '' }}" required>
+                    <label class="form-label">Meta de Vendas</label>
+                    {% if campanha_edit %}
+                    <input type="text" class="form-control" value="R$ {{ campanha_edit.meta | format_valor }}" disabled>
+                    {% elif meta_padrao %}
+                    <input type="text" class="form-control" value="R$ {{ meta_padrao | format_valor }}" disabled>
+                    {% else %}
+                    <input type="text" class="form-control"
+                        value="Sem meta cadastrada para o período atual" disabled>
+                    {% endif %}
+                    <small class="text-muted">A meta é preenchida automaticamente com base na tabela de metas.</small>
                 </div>
                 <div class="mb-3">
                     <label for="origem" class="form-label">Origem dos Dados</label>

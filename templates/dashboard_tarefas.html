@@ -1,0 +1,404 @@
+{% extends 'base.html' %}
+{% block title %}Dashboard Agendor{% endblock %}
+{% block navbar %}{% endblock %}
+{% block extra_head %}
+<style>
+  html, body {
+    height: 100%;
+  }
+  body {
+    padding-top: 10px !important;
+    background-color: #0f172a;
+    color: #f5f5f5;
+    overflow: hidden;
+  }
+  main.container {
+    max-width: 1280px;
+    height: calc(100vh - 20px);
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    overflow: hidden;
+  }
+  .dashboard-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .top-row {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 16px;
+  }
+  .metric-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 16px;
+  }
+  .card {
+    background: #1e293b;
+    border-radius: 1rem;
+    border: 0;
+    color: #f8fafc;
+    padding: 1.4rem;
+  }
+  .card.metric {
+    text-align: center;
+    padding: 1.1rem;
+  }
+  .card.metric h6 {
+    text-transform: uppercase;
+    font-size: 0.8rem;
+    letter-spacing: 1px;
+    color: rgba(248, 250, 252, 0.7);
+    margin-bottom: 0.3rem;
+  }
+  .card.metric .metric-value {
+    font-size: 1.8rem;
+    font-weight: 700;
+    line-height: 1.1;
+  }
+  .card.metric .metric-sub {
+    color: rgba(248, 250, 252, 0.7);
+    font-size: 0.85rem;
+  }
+  .bottom-grid {
+    flex: 1;
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+    gap: 16px;
+    min-height: 0;
+  }
+  .chart-wrapper {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+  }
+  .chart-wrapper canvas {
+    flex: 1;
+  }
+  #chartEmpty {
+    margin-top: 1rem;
+  }
+  .ranking-card {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    padding: 1rem;
+  }
+  .ranking-scroll {
+    flex: 1;
+    overflow-y: auto;
+  }
+  .ranking-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+  }
+  .ranking-item {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    background: rgba(15, 23, 42, 0.65);
+    padding: 0.55rem 0.7rem;
+    border-radius: 0.8rem;
+  }
+  .ranking-pos {
+    font-size: 0.9rem;
+    font-weight: 700;
+    width: 28px;
+    text-align: center;
+  }
+  .ranking-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: #1e1e2f;
+    object-fit: cover;
+    font-weight: 600;
+  }
+  .ranking-info {
+    flex: 1;
+  }
+  .ranking-info h6 {
+    margin: 0;
+    font-size: 0.95rem;
+    font-weight: 600;
+  }
+  .ranking-info small {
+    color: rgba(248, 250, 252, 0.7);
+    font-size: 0.85rem;
+  }
+  @media (max-width: 1200px) {
+    .metric-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .bottom-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="dashboard-container">
+    <div class="top-row">
+        <div>
+            <p class="text-uppercase text-muted small mb-1">Visão Geral - Agendor</p>
+            <h2 class="fw-bold mb-1">Dashboard de Visitas e Reuniões</h2>
+            <p class="text-muted mb-0" id="periodoLabel">{{ dados.periodo_label }}</p>
+        </div>
+        <div class="text-md-end">
+            <p class="text-muted small mb-1" id="lastUpdate">
+                Atualizado em {{ dados.last_updated }}
+            </p>
+            <div class="btn-group">
+                <a href="/analytics" class="btn btn-outline-light btn-sm">Analytics</a>
+                <button class="btn btn-light btn-sm" id="refreshButton">Atualizar agora</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="metric-grid">
+        <div class="card metric">
+            <h6>Visitas</h6>
+            <div class="metric-value" id="visitasValor">{{ dados.total_visitas }}</div>
+            <p class="metric-sub">Registradas no período</p>
+        </div>
+        <div class="card metric">
+            <h6>Reuniões</h6>
+            <div class="metric-value" id="reunioesValor">{{ dados.total_reunioes }}</div>
+            <p class="metric-sub">Realizadas / agendadas</p>
+        </div>
+        <div class="card metric">
+            <h6>Negócios Ganhos</h6>
+            <div class="metric-value" id="negociosValor">{{ dados.negocios_ganhos }}</div>
+            <p class="metric-sub">No Agendor</p>
+        </div>
+        <div class="card metric">
+            <h6>Meta x Realizado</h6>
+            <div class="metric-value" id="realizadoValor">R$ {{ dados.valor_total_liquido | format_valor }}</div>
+            <p class="metric-sub">Meta: <span id="metaValor">R$ {{ dados.meta_periodo | format_valor }}</span></p>
+        </div>
+    </div>
+
+    <div class="bottom-grid">
+        <div class="card chart-wrapper">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div>
+                    <h5 class="mb-0">Progresso da Meta por Semana</h5>
+                    <small class="text-muted">Valores líquidos (cotas) vs meta acumulada</small>
+                </div>
+            </div>
+            <canvas id="metaSemanaChart"></canvas>
+            <p class="text-muted mt-3" id="chartEmpty" style="display: none;">Ainda não há dados suficientes para o gráfico.</p>
+        </div>
+        <div class="card ranking-card">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <div>
+                    <h5 class="mb-0">Ranking Consultores</h5>
+                    <small class="text-muted">Cotas líquidas no mês</small>
+                </div>
+            </div>
+            <div class="ranking-scroll">
+                <ul class="ranking-list" id="rankingList">
+                    {% if dados.ranking %}
+                        {% for item in dados.ranking %}
+                        <li class="ranking-item">
+                            <div class="ranking-pos">#{{ item.posicao }}</div>
+                            {% if item.imagem %}
+                            <img class="ranking-avatar" src="data:image/png;base64,{{ item.imagem }}" alt="{{ item.nome }}">
+                            {% else %}
+                            <div class="ranking-avatar d-flex align-items-center justify-content-center">
+                                {{ item.nome[0] if item.nome }}
+                            </div>
+                            {% endif %}
+                            <div class="ranking-info">
+                                <h6>{{ item.nome }}</h6>
+                                <small>R$ {{ item.valor | format_valor }}</small>
+                            </div>
+                        </li>
+                        {% endfor %}
+                    {% else %}
+                        <li class="ranking-item">
+                            <div class="ranking-info">
+                                <h6>Nenhum dado disponível</h6>
+                                <small>Sem vendas registradas para o período.</small>
+                            </div>
+                        </li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.6/dist/chart.umd.min.js"></script>
+<script>
+    const REFRESH_INTERVAL = 60000;
+    let metaChart = null;
+
+    const rankingListEl = () => document.getElementById('rankingList');
+
+    function formatCurrencyBR(value) {
+        return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(value || 0));
+    }
+
+    function updateCards(data) {
+        document.getElementById('periodoLabel').textContent = data.periodo_label;
+        document.getElementById('lastUpdate').textContent = `Atualizado em ${new Date(data.last_updated).toLocaleString('pt-BR')}`;
+        document.getElementById('visitasValor').textContent = data.total_visitas;
+        document.getElementById('reunioesValor').textContent = data.total_reunioes;
+        document.getElementById('negociosValor').textContent = data.negocios_ganhos;
+        document.getElementById('realizadoValor').textContent = formatCurrencyBR(data.valor_total_liquido);
+        document.getElementById('metaValor').textContent = formatCurrencyBR(data.meta_periodo);
+    }
+
+    function updateChart(data) {
+        const canvas = document.getElementById('metaSemanaChart');
+        const emptyMsg = document.getElementById('chartEmpty');
+        const serie = data.serie_semanal || [];
+
+        if (!serie.length) {
+            canvas.style.display = 'none';
+            emptyMsg.style.display = 'block';
+            return;
+        }
+
+        canvas.style.display = 'block';
+        emptyMsg.style.display = 'none';
+
+        const labels = serie.map(item => item.label);
+        const realizado = serie.map(item => item.realizado);
+        const meta = serie.map(item => item.meta);
+
+        const chartData = {
+            labels,
+            datasets: [
+                {
+                    label: 'Realizado (R$)',
+                    data: realizado,
+                    borderColor: '#34c759',
+                    backgroundColor: 'rgba(52, 199, 89, 0.15)',
+                    tension: 0.35,
+                    fill: true,
+                    borderWidth: 3,
+                    pointRadius: 4
+                },
+                {
+                    label: 'Meta (R$)',
+                    data: meta,
+                    borderColor: '#ff3b30',
+                    borderDash: [6, 4],
+                    tension: 0.35,
+                    fill: false,
+                    borderWidth: 3,
+                    pointRadius: 4
+                }
+            ]
+        };
+
+        if (metaChart) {
+            metaChart.data = chartData;
+            metaChart.update();
+        } else {
+            metaChart = new Chart(canvas, {
+                type: 'line',
+                data: chartData,
+                options: {
+                    responsive: true,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false
+                    },
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: (ctx) => `${ctx.dataset.label}: ${formatCurrencyBR(ctx.parsed.y)}`
+                            }
+                        },
+                        legend: {
+                            labels: {
+                                color: '#f8fafc'
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            ticks: { color: '#cbd5f5' },
+                            grid: { color: 'rgba(148,163,184,0.2)' }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                color: '#cbd5f5',
+                                callback: (value) => formatCurrencyBR(value)
+                            },
+                            grid: { color: 'rgba(148,163,184,0.2)' }
+                        }
+                    }
+                }
+            });
+        }
+    }
+
+    function renderRanking(data) {
+        const list = rankingListEl();
+        if (!list) return;
+
+    if (!data.ranking || data.ranking.length === 0) {
+        list.innerHTML = `
+                <li class="ranking-item">
+                    <div class="ranking-info">
+                        <h6>Nenhum dado disponível</h6>
+                        <small>Sem vendas registradas para o período.</small>
+                    </div>
+                </li>`;
+            return;
+        }
+
+        list.innerHTML = data.ranking.map(item => `
+            <li class="ranking-item">
+                <div class="ranking-pos">#${item.posicao}</div>
+                ${item.imagem
+                    ? `<img class="ranking-avatar" src="data:image/png;base64,${item.imagem}" alt="${item.nome}">`
+                    : `<div class="ranking-avatar d-flex align-items-center justify-content-center">${(item.nome || 'C')[0]}</div>`
+                }
+                <div class="ranking-info">
+                    <h6>${item.nome}</h6>
+                    <small>${formatCurrencyBR(item.valor)}</small>
+                </div>
+            </li>
+        `).join('');
+    }
+
+    function renderDashboard(data) {
+        updateCards(data);
+        updateChart(data);
+        renderRanking(data);
+    }
+
+    async function fetchLatestData() {
+        try {
+            const response = await fetch('/api/dashboard-tarefas', { cache: 'no-store' });
+            if (!response.ok) throw new Error('Falha ao atualizar dashboard');
+            const payload = await response.json();
+            renderDashboard(payload);
+        } catch (error) {
+            console.error(error);
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const initialData = {{ dados | tojson }};
+        renderDashboard(initialData);
+        document.getElementById('refreshButton').addEventListener('click', fetchLatestData);
+        setInterval(fetchLatestData, REFRESH_INTERVAL);
+    });
+</script>
+{% endblock %}

@@ -1,5 +1,5 @@
 from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy import Enum
+from sqlalchemy.dialects.postgresql import UUID
 import enum
 
 db = SQLAlchemy()
@@ -38,3 +38,35 @@ class Propaganda(db.Model):
     imagem_base64 = db.Column(db.Text, nullable=True)
     ativo = db.Column(db.Boolean, default=True)
 
+
+class Cota(db.Model):
+    __tablename__ = 'cotas'
+    __table_args__ = {'schema': 'dev'}
+
+    id = db.Column(UUID(as_uuid=True), primary_key=True)
+    grupo = db.Column(db.String(255), nullable=False)
+    cota = db.Column(db.String(255), nullable=True)
+    valor = db.Column(db.Numeric, nullable=True)
+    valor_total = db.Column('valorTotal', db.Numeric, nullable=True)
+    data_aquisicao = db.Column('dtaquisicao', db.DateTime(timezone=True), nullable=False)
+    cliente_id = db.Column('clienteId', UUID(as_uuid=True), nullable=True)
+    consultor_id = db.Column('consultorId', db.Integer, nullable=True)
+    id_agendor = db.Column('idagendor', db.String(255), nullable=True)
+    administradora = db.Column(db.String(255), nullable=False)
+    created_at = db.Column('createdAt', db.DateTime(timezone=True), nullable=False)
+    updated_at = db.Column('updatedAt', db.DateTime(timezone=True), nullable=False)
+    digito = db.Column(db.String(5), nullable=True)
+    consultor_legado = db.Column('consultorLegado', db.String(255), nullable=True)
+
+
+class Meta(db.Model):
+    __tablename__ = 'metas'
+    __table_args__ = {'schema': 'dev'}
+
+    id = db.Column(UUID(as_uuid=True), primary_key=True)
+    descricao = db.Column(db.String(255), nullable=True)
+    valor = db.Column(db.Numeric(15, 2), nullable=False)
+    data_inicio = db.Column('dataInicio', db.Date, nullable=False)
+    data_fim = db.Column('dataFim', db.Date, nullable=True)
+    created_at = db.Column('createdAt', db.DateTime(timezone=True), nullable=False)
+    updated_at = db.Column('updatedAt', db.DateTime(timezone=True), nullable=False)
