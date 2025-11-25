@@ -263,9 +263,8 @@ def obter_dashboard_tarefas_dados():
     due_fim = datetime.combine(fim_mes + timedelta(days=1), time.min).isoformat()
     params_tarefas = {
         'per_page': 100,
-        'finishedEq': 'false',
-        'dueDateGt': due_inicio,
-        'dueDateLt': due_fim
+        'updatedDateGt': due_inicio,
+        'updatedDateLt': due_fim
     }
     tarefas = fetch_tasks(API_BASE_URL, API_TOKEN, params_tarefas)
 
@@ -276,6 +275,8 @@ def obter_dashboard_tarefas_dados():
         if not data_tarefa:
             continue
         if not data_no_intervalo(data_tarefa, inicio_mes, fim_mes):
+            continue
+        if tarefa.get('Concluida'):
             continue
         tipo = normalize_task_type(tarefa.get('Tipo'))
         if tipo == 'VISITA':
