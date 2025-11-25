@@ -239,8 +239,6 @@ def home():
 def update_progress(ganhos, mes_atual, ano_atual):
     df_mes_atual = []
     for g in ganhos:
-        if negocio_excluido(g):
-            continue
         data_ref = data_negocio(g)
         if data_ref and data_ref.month == mes_atual and data_ref.year == ano_atual:
             df_mes_atual.append(g)
@@ -293,8 +291,6 @@ def obter_dashboard_tarefas_dados():
     ganhos = fetch_deal_data(params_deals)
     ganhos_mes = []
     for g in ganhos:
-        if negocio_excluido(g):
-            continue
         if data_no_intervalo(data_negocio(g), inicio_mes, fim_mes):
             ganhos_mes.append(g)
 
