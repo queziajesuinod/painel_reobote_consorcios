@@ -257,6 +257,29 @@
         return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(value || 0));
     }
 
+    // Plugin para mostrar os valores de cada semana fixados no gráfico
+    const valueLabelPlugin = {
+        id: 'valueLabelPlugin',
+        afterDatasetsDraw(chart, args, pluginOptions) {
+            const { ctx, data } = chart;
+            const formatter = pluginOptions?.formatter || (v => v);
+            ctx.save();
+            data.datasets.forEach((dataset, datasetIndex) => {
+                const meta = chart.getDatasetMeta(datasetIndex);
+                meta.data.forEach((element, index) => {
+                    const value = dataset.data[index];
+                    if (value === null || value === undefined) return;
+                    const offsetY = datasetIndex === 0 ? -10 : 16; // evita sobreposição entre linhas
+                    ctx.fillStyle = '#e2e8f0';
+                    ctx.font = '12px "Segoe UI", sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(formatter(value), element.x, element.y + offsetY);
+                });
+            });
+            ctx.restore();
+        }
+    };
+
     function updateCards(data) {
         document.getElementById('periodoLabel').textContent = data.periodo_label;
         document.getElementById('lastUpdate').textContent = `Atualizado em ${new Date(data.last_updated).toLocaleString('pt-BR')}`;
@@ -318,6 +341,7 @@
             metaChart = new Chart(canvas, {
                 type: 'line',
                 data: chartData,
+                plugins: [valueLabelPlugin],
                 options: {
                     responsive: true,
                     interaction: {
@@ -334,6 +358,9 @@
                             labels: {
                                 color: '#f8fafc'
                             }
+                        },
+                        valueLabelPlugin: {
+                            formatter: (value) => formatCurrencyBR(value)
                         }
                     },
                     scales: {

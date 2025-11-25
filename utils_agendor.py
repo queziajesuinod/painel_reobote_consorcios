@@ -56,20 +56,35 @@ meses = {
 def fetch_deal_data(params):
     """
     Busca negócios com paginação simples usando /deals/stream.
+    Aplica backoff exponencial para 429 para reduzir spam de logs.
     """
     all_data = []
     current_page = 1
     base_params = dict(params or {})
     url = f"{API_URL}/stream"
+    backoff = 0.8
+    max_backoff = 6
+    consecutive_429 = 0
+    max_429 = 30
 
     while True:
         query_params = {**base_params, "page": current_page}
         try:
             response = requests.get(url, headers=API_AUTH_HEADER, params=query_params, timeout=20)
             if response.status_code == 429:
-                print("⚠️ API Agendor (deals) retornou 429, aguardando 1s...")
-                time.sleep(1)
+                consecutive_429 += 1
+                if consecutive_429 >= max_429:
+                    print("⚠️ Muitas respostas 429 seguidas em deals, interrompendo para evitar bloqueio.")
+                    break
+                sleep_time = min(backoff, max_backoff)
+                print(f"⚠️ API Agendor (deals) 429 — aguardando {sleep_time:.1f}s (ocorrência {consecutive_429})")
+                time.sleep(sleep_time)
+                backoff = min(backoff * 1.5, max_backoff)
                 continue
+
+            consecutive_429 = 0
+            backoff = 0.8
+
             if response.status_code != 200:
                 print(f"❌ Erro da API Agendor (deals): {response.status_code} | {response.text}")
                 break
@@ -145,6 +160,10 @@ def fetch_tasks(params):
     base_params = dict(params or {})
     per_page = int(base_params.pop("per_page", 100) or 100)
     page = 1
+    backoff = 0.4
+    max_backoff = 4
+    consecutive_429 = 0
+    max_429 = 30
 
     while True:
         query_params = {"page": page, "per_page": per_page, **base_params}
@@ -158,9 +177,18 @@ def fetch_tasks(params):
             )
 
             if response.status_code == 429:
-                print("⚠️ API Agendor (tasks) retornou 429, aguardando 0.4s...")
-                time.sleep(0.4)
+                consecutive_429 += 1
+                if consecutive_429 >= max_429:
+                    print("⚠️ Muitas respostas 429 seguidas em tasks, interrompendo para evitar bloqueio.")
+                    break
+                sleep_time = min(backoff, max_backoff)
+                print(f"⚠️ API Agendor (tasks) 429 — aguardando {sleep_time:.1f}s (ocorrência {consecutive_429})")
+                time.sleep(sleep_time)
+                backoff = min(backoff * 1.5, max_backoff)
                 continue
+
+            consecutive_429 = 0
+            backoff = 0.4
 
             if response.status_code != 200:
                 print(f"❌ Erro da API Agendor (tasks): {response.status_code} | {response.text}")
