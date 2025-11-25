@@ -19,7 +19,7 @@ from collections import defaultdict
 from datetime import datetime, time, date, timedelta
 from flask import flash
 from sqlalchemy import func, or_
-import os, base64, calendar, unicodedata
+import os, base64, calendar, unicodedata, hashlib, json
 
 EXCLUDED_CONSULTOR_IDS = {'640301'}
 EXCLUDED_COTA_CONSULTORES = {2}
@@ -269,6 +269,11 @@ def obter_dashboard_tarefas_dados():
     total_visitas = 0
     total_reunioes = 0
     for tarefa in tarefas:
+        data_tarefa = parse_dt_safe(tarefa.get('Data') or tarefa.get('FinalizadaEm'))
+        if not data_tarefa:
+            continue
+        if not data_no_intervalo(data_tarefa, inicio_mes, fim_mes):
+            continue
         tipo = normalize_task_type(tarefa.get('Tipo'))
         if tipo == 'VISITA':
             total_visitas += 1
@@ -315,7 +320,7 @@ def obter_dashboard_tarefas_dados():
             Cota.consultor_id,
             func.coalesce(func.sum(Cota.valor), 0).label('total')
         )
-        .filter(Cota.data_aquisicao >= inicio_mes_dt)
+        .filter(Cota.x >= inicio_mes_dt)
         .filter(Cota.data_aquisicao <= fim_mes_dt)
     )
     if EXCLUDED_COTA_CONSULTORES:
@@ -341,7 +346,6 @@ def obter_dashboard_tarefas_dados():
             'valor': float(row.total or 0),
             'imagem': imagem
         })
-    ranking = ranking[:5]
 
     dados = {
         'periodo_label': f"{inicio_mes.strftime('%d/%m/%Y')} - {fim_mes.strftime('%d/%m/%Y')}",
@@ -355,6 +359,7 @@ def obter_dashboard_tarefas_dados():
         'total_tarefas': len(tarefas),
         'last_updated': datetime.now().isoformat()
     }
+    dados['signature'] = hashlib.md5(json.dumps(dados, sort_keys=True, default=str).encode()).hexdigest()
     return dados
 
 @app.route('/analytics')
