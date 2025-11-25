@@ -265,10 +265,8 @@ def obter_dashboard_tarefas_dados():
     due_fim = datetime.combine(fim_mes + timedelta(days=1), time.min).strftime('%Y-%m-%dT%H:%M:%SZ')
     params_tarefas = {
         'per_page': 100,
-        'updatedDateGt': due_inicio,
-        'updatedDateLt': due_fim,
-        'createdDateGt': due_inicio,
-        'createdDateLt': due_fim
+        'dueDateGt': due_inicio,
+        'dueDateLt': due_fim
     }
     tarefas = fetch_tasks(params_tarefas)
 

@@ -218,12 +218,18 @@ def fetch_tasks(params):
                     }
                 )
 
-            print(f"ℹ️ {len(registros)} tarefas carregadas (página {page})")
+            print(f"[tasks] {len(registros)} tarefas carregadas (pagina {page})")
 
-            if len(registros) < per_page:
+            links = data.get("links") or {}
+            meta = data.get("meta") or {}
+            has_next = bool(links.get("next")) or bool(meta.get("hasNextPage"))
+
+            # Respeita hasNext mesmo com página cheia; fallback apenas se a API não mandar hasNext.
+            if not has_next:
                 break
 
             page += 1
+
             time.sleep(0.4)
 
         except Exception as exc:  # pragma: no cover - log defensivo
