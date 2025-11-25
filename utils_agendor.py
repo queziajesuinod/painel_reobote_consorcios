@@ -107,17 +107,19 @@ def fetch_tasks(base_url, token, params):
 
     all_tasks = []
     headers = {'Authorization': token}
-    endpoint = f"{base_url.rstrip('/')}/tasks"
-    next_url = endpoint
+    base_endpoint = f"{base_url.rstrip('/')}/tasks"
+    next_url = base_endpoint
     next_params = dict(params or {})
     page = 1
 
     while next_url:
         try:
+            request_url = next_url
+            request_params = next_params
             response = requests.get(
-                next_url,
+                request_url,
                 headers=headers,
-                params=next_params,
+                params=request_params,
                 timeout=20
             )
             if response.status_code != 200:

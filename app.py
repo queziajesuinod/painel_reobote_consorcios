@@ -259,10 +259,13 @@ def obter_dashboard_tarefas_dados():
     inicio_mes_dt = ensure_datetime(inicio_mes)
     fim_mes_dt = ensure_datetime(fim_mes, end=True)
 
+    due_inicio = datetime.combine(inicio_mes, time.min).isoformat()
+    due_fim = datetime.combine(fim_mes + timedelta(days=1), time.min).isoformat()
     params_tarefas = {
         'per_page': 100,
-        'updatedDateGt': inicio_mes.isoformat(),
-        'updatedDateLt': (fim_mes + timedelta(days=1)).isoformat()
+        'finishedEq': 'false',
+        'dueDateGt': due_inicio,
+        'dueDateLt': due_fim
     }
     tarefas = fetch_tasks(API_BASE_URL, API_TOKEN, params_tarefas)
 
@@ -393,7 +396,7 @@ def analytics():
 
     ganhos_mes = [
         g for g, data_ref in ganhos_ano
-        if data_ref.month == mes_atual and data_ref.year == ano_atual and not negocio_excluido(g)
+        if data_ref.month == mes_atual and data_ref.year == ano_atual
     ]
     vendas_anuais = sum(g['Valor do Negócio'] for g, _ in ganhos_ano)
     vendas_mes = sum(g['Valor do Negócio'] for g in ganhos_mes)
