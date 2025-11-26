@@ -273,13 +273,16 @@ def obter_dashboard_tarefas_dados():
     total_visitas = 0
     total_reunioes = 0
     for tarefa in tarefas:
-        data_tarefa = parse_dt_safe(tarefa.get('Data') or tarefa.get('FinalizadaEm'))
-        if not data_tarefa:
+        # Contabiliza apenas tarefas concluídas no período
+        if not tarefa.get('Concluida'):
             continue
-        if not data_no_intervalo(data_tarefa, inicio_mes, fim_mes):
+
+        data_finalizacao = parse_dt_safe(tarefa.get('FinalizadaEm') or tarefa.get('Data'))
+        if not data_finalizacao:
             continue
-        if tarefa.get('Concluida'):
+        if not data_no_intervalo(data_finalizacao, inicio_mes, fim_mes):
             continue
+
         tipo = normalize_task_type(tarefa.get('Tipo'))
         if tipo == 'VISITA':
             total_visitas += 1
