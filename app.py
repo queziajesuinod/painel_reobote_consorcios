@@ -253,6 +253,45 @@ def update_progress(ganhos, mes_atual, ano_atual):
     return porcentagem, texto, cor
 
 
+def obter_negocios_ganhos_mes():
+    hoje = datetime.now()
+    inicio_mes = date(hoje.year, hoje.month, 1)
+    params_mes = dict(params_ganhos, since=inicio_mes.strftime('%Y-%m-%d'))
+    ganhos = fetch_deal_data(params_mes)
+    negocios = []
+    for registro in ganhos:
+        data_ganho = data_negocio(registro)
+        if not data_ganho or data_ganho.year != hoje.year or data_ganho.month != hoje.month:
+            continue
+        negocios.append({
+            'id': registro.get('ID'),
+            'consultor': registro.get('Consultor'),
+            'valor': float(registro.get('Valor do Negócio') or 0),
+            'data_ganho': data_ganho.strftime('%Y-%m-%d %H:%M:%S') if isinstance(data_ganho, datetime) else str(data_ganho),
+            'status': registro.get('Status'),
+            'etapa': registro.get('Etapa'),
+            'funil': registro.get('Funil'),
+        })
+    return negocios
+
+
+def listar_negocios_ganhos():
+    ganhos = fetch_deal_data(params_ganhos)
+    negocios = []
+    for registro in ganhos:
+        nome_negocio = registro.get('Nome') or registro.get('Etapa') or registro.get('Status') or registro.get('ID')
+        ganho_dt = data_negocio(registro)
+        negocios.append({
+            'id': registro.get('ID'),
+            'nome': nome_negocio,
+            'consultor': registro.get('Consultor'),
+            'valor': float(registro.get('Valor do Negócio') or 0),
+            'status': registro.get('Status'),
+            'data_ganho': ganho_dt.strftime('%Y-%m-%d %H:%M:%S') if ganho_dt else None,
+        })
+    return negocios
+
+
 def obter_dashboard_tarefas_dados():
     hoje = datetime.now().date()
     inicio_mes = hoje.replace(day=1)
@@ -496,6 +535,35 @@ def analytics():
                            porcentagem_campanha=porcentagem_campanha,
                            texto_campanha=texto_campanha,
                            cor_campanha=cor_campanha)
+
+
+@app.route('/console/ganhos-mes')
+def console_ganhos_mes():
+    if not session.get('logado'):
+        return redirect('/')
+    negocios = obter_negocios_ganhos_mes()
+    for idx, negocio in enumerate(negocios, start=1):
+        valor = negocio['valor']
+        app.logger.info(f"[ganhos-mes] #{idx:02d} {negocio['data_ganho']} {negocio['consultor']} R$ {valor:,.2f} id={negocio['id']}")
+    return jsonify({
+        'total': len(negocios),
+        'negocios': negocios,
+        'gerado_em': datetime.now().isoformat()
+    })
+
+
+@app.route('/console/lista-negocios-ganhos')
+def console_lista_negocios_ganhos():
+    if not session.get('logado'):
+        return redirect('/')
+    negocios = listar_negocios_ganhos()
+    for idx, negocio in enumerate(negocios, start=1):
+        app.logger.info(f"[lista-negocios-ganhos] #{idx:02d} {negocio['nome']} R$ {negocio['valor']:,.2f} consultor={negocio['consultor']}")
+    return jsonify({
+        'total': len(negocios),
+        'negocios': negocios,
+        'gerado_em': datetime.now().isoformat()
+    })
 
 @app.route('/dashboard-tarefas')
 def dashboard_tarefas():

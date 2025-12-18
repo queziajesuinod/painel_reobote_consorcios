@@ -1,9 +1,12 @@
 import os
+import threading
 import time
 from datetime import datetime
+from email.utils import parsedate_to_datetime
 
 import requests
 from dotenv import load_dotenv
+from requests.adapters import HTTPAdapter
 
 load_dotenv()
 
@@ -12,7 +15,91 @@ API_URL = f"{API_BASE_URL}/deals"
 API_TOKEN = os.getenv("API_TOKEN") or ""
 API_AUTH_HEADER = {"Authorization": f"Token {API_TOKEN}"}
 
-# Parâmetros de filtros
+
+def _parse_retry_after(value):
+    if not value:
+        return None
+    try:
+        return float(value)
+    except ValueError:
+        try:
+            retry_date = parsedate_to_datetime(value)
+            delta = (retry_date - datetime.utcnow()).total_seconds()
+            return max(delta, 0)
+        except Exception:
+            return None
+
+
+class RateLimiter:
+    def __init__(self, rate_per_second=3):
+        self._interval = 1.0 / rate_per_second
+        self._lock = threading.Lock()
+        self._last_call = 0.0
+
+    def wait_for_slot(self):
+        with self._lock:
+            now = time.monotonic()
+            next_allowed = self._last_call + self._interval
+            if now < next_allowed:
+                time.sleep(next_allowed - now)
+                now = next_allowed
+            self._last_call = now
+
+
+class AgendorAPIClient:
+    def __init__(self, rate_per_second=3, max_connections=4, max_retries=6):
+        self._session = requests.Session()
+        adapter = HTTPAdapter(pool_connections=max_connections, pool_maxsize=max_connections, pool_block=True)
+        self._session.mount("https://", adapter)
+        self._session.mount("http://", adapter)
+
+        self._rate_limiter = RateLimiter(rate_per_second=rate_per_second)
+        self._lock = threading.Lock()
+        self._max_retries = max_retries
+
+    def request(self, method, url, **kwargs):
+        with self._lock:
+            self._rate_limiter.wait_for_slot()
+            return self._send_with_retries(method, url, **kwargs)
+
+    def _send_with_retries(self, method, url, **kwargs):
+        backoff = 0.4
+        max_backoff = 6
+        attempt = 0
+
+        while attempt < self._max_retries:
+            attempt += 1
+            try:
+                response = self._session.request(method, url, **kwargs)
+            except requests.RequestException as exc:
+                print(f"[Agendor] tentativa {attempt} falhou: {exc}")
+                if attempt >= self._max_retries:
+                    return None
+                time.sleep(backoff)
+                backoff = min(backoff * 2, max_backoff)
+                continue
+
+            if response.status_code == 429:
+                retry_delay = _parse_retry_after(response.headers.get("Retry-After")) or backoff
+                print(f"[Agendor] 429 recebido, aguardando {retry_delay:.1f}s (tentativa {attempt})")
+                time.sleep(retry_delay)
+                backoff = min(backoff * 1.5, max_backoff)
+                continue
+
+            if 500 <= response.status_code < 600:
+                print(f"[Agendor] {response.status_code} recebido, tentando novamente (tentativa {attempt})")
+                time.sleep(backoff)
+                backoff = min(backoff * 1.5, max_backoff)
+                continue
+
+            return response
+
+        print("[Agendor] excedido limite de tentativas")
+        return None
+
+
+AGENDOR_CLIENT = AgendorAPIClient()
+
 ano_atual = datetime.now().year
 mes_atual = datetime.now().month
 primeiro_dia_ano = datetime(ano_atual, 1, 1).strftime("%Y-%m-%d")
@@ -21,7 +108,7 @@ ultimo_dia_ano = datetime(ano_atual, 12, 31).strftime("%Y-%m-%d")
 params_ganhos = {
     "page": 1,
     "per_page": 100,
-    "dealStatus": 2,  # Ganhos
+    "dealStatus": 2,
     "since": primeiro_dia_ano,
 }
 
@@ -40,7 +127,7 @@ params_quentes = {
 meses = {
     1: "Janeiro",
     2: "Fevereiro",
-    3: "Março",
+    3: "Marco",
     4: "Abril",
     5: "Maio",
     6: "Junho",
@@ -54,90 +141,61 @@ meses = {
 
 
 def fetch_deal_data(params):
-    """
-    Busca negócios com paginação simples usando /deals/stream.
-    Aplica backoff exponencial para 429 para reduzir spam de logs.
-    """
+    """Busca negocios com paginacao simples usando /deals/stream."""
     all_data = []
     current_page = 1
     base_params = dict(params or {})
     url = f"{API_URL}/stream"
-    backoff = 0.8
-    max_backoff = 6
-    consecutive_429 = 0
-    max_429 = 30
 
     while True:
-        query_params = {**base_params, "page": current_page}
-        try:
-            response = requests.get(url, headers=API_AUTH_HEADER, params=query_params, timeout=20)
-            if response.status_code == 429:
-                consecutive_429 += 1
-                if consecutive_429 >= max_429:
-                    print("⚠️ Muitas respostas 429 seguidas em deals, interrompendo para evitar bloqueio.")
-                    break
-                sleep_time = min(backoff, max_backoff)
-                print(f"⚠️ API Agendor (deals) 429 — aguardando {sleep_time:.1f}s (ocorrência {consecutive_429})")
-                time.sleep(sleep_time)
-                backoff = min(backoff * 1.5, max_backoff)
-                continue
-
-            consecutive_429 = 0
-            backoff = 0.8
-
-            if response.status_code != 200:
-                print(f"❌ Erro da API Agendor (deals): {response.status_code} | {response.text}")
-                break
-
-            data = response.json()
-            registros = data.get("data") or []
-            if not registros:
-                break
-
-            for registro in registros:
-                owner = registro.get("owner") or {}
-                deal_stage = registro.get("dealStage") or {}
-                funnel = deal_stage.get("funnel") or {}
-                deal_status = registro.get("dealStatus") or {}
-
-                all_data.append(
-                    {
-                        "ID": registro.get("id"),
-                        "Valor do Negócio": registro.get("value", 0) or 0,
-                        "EtapaId": deal_stage.get("id"),
-                        "Etapa": deal_stage.get("name"),
-                        "Funil": funnel.get("name"),
-                        "Status": deal_status.get("name"),
-                        "ConsultorId": owner.get("id") if isinstance(owner, dict) else None,
-                        "Consultor": owner.get("name", "Sem consultor") if isinstance(owner, dict) else "Sem consultor",
-                        "Data Final": registro.get("endTime"),
-                        "Data Ganho": registro.get("wonAt"),
-                    }
-                )
-
-            print(f"ℹ️ {len(registros)} negócios carregados (página {current_page})")
-
-            links = data.get("links") or {}
-            meta = data.get("meta") or {}
-            has_next = bool(links.get("next")) or bool(meta.get("hasNextPage"))
-            if not has_next:
-                break
-
-            current_page += 1
-            time.sleep(0.2)
-
-        except Exception as exc:  # pragma: no cover - log defensivo
-            print(f"❌ Erro ao buscar negócios: {exc}")
+        query_params = {**base_params, "page": current_page, "per_page": 100}
+        response = AGENDOR_CLIENT.request("GET", url, headers=API_AUTH_HEADER, params=query_params, timeout=20)
+        if not response:
             break
+
+        if response.status_code != 200:
+            print(f"Erro da API Agendor (deals): {response.status_code} | {response.text}")
+            break
+
+        data = response.json()
+        registros = data.get("data") or []
+        if not registros:
+            break
+
+        for registro in registros:
+            owner = registro.get("owner") or {}
+            deal_stage = registro.get("dealStage") or {}
+            funnel = deal_stage.get("funnel") or {}
+            deal_status = registro.get("dealStatus") or {}
+
+            all_data.append({
+                "ID": registro.get("id"),
+                "Valor do Negócio": registro.get("value", 0) or 0,
+                "EtapaId": deal_stage.get("id"),
+                "Etapa": deal_stage.get("name"),
+                "Funil": funnel.get("name"),
+                "Status": deal_status.get("name"),
+                "ConsultorId": owner.get("id") if isinstance(owner, dict) else None,
+                "Consultor": owner.get("name", "Sem consultor") if isinstance(owner, dict) else "Sem consultor",
+                "Data Final": registro.get("endTime"),
+                "Data Ganho": registro.get("wonAt"),
+            })
+
+        print(f"[deals] {len(registros)} registros carregados (pagina {current_page})")
+
+        links = data.get("links") or {}
+        meta = data.get("meta") or {}
+        has_next = bool(links.get("next")) or bool(meta.get("hasNextPage"))
+        if not has_next:
+            break
+
+        current_page += 1
+        time.sleep(0.2)
 
     return all_data
 
 
 def _normalize_assigned_user(assigned_users, user):
-    """
-    Retorna (id, nome) do consultor associado à tarefa.
-    Prioriza assignedUsers (lista ou dict) e cai para user se vazio.
-    """
     if isinstance(assigned_users, list) and assigned_users:
         assigned = assigned_users[0]
     elif isinstance(assigned_users, dict):
@@ -152,94 +210,69 @@ def _normalize_assigned_user(assigned_users, user):
 
 
 def fetch_tasks(params):
-    """
-    Busca tarefas com paginação controlada (page/per_page) e filtros dinâmicos,
-    espelhando o fluxo do exemplo em Node.
-    """
+    """Busca tarefas com paginacao controlada e filtros dinamicos."""
     all_tasks = []
     base_params = dict(params or {})
-    per_page = int(base_params.pop("per_page", 100) or 100)
+    per_page = min(100, max(1, int(base_params.pop("per_page", 100) or 100)))
     page = 1
-    backoff = 0.4
-    max_backoff = 4
-    consecutive_429 = 0
-    max_429 = 30
 
     while True:
         query_params = {"page": page, "per_page": per_page, **base_params}
-
-        try:
-            response = requests.get(
-                f"{API_BASE_URL}/tasks",
-                headers={**API_AUTH_HEADER, "Content-Type": "application/json"},
-                params=query_params,
-                timeout=20,
-            )
-
-            if response.status_code == 429:
-                consecutive_429 += 1
-                if consecutive_429 >= max_429:
-                    print("⚠️ Muitas respostas 429 seguidas em tasks, interrompendo para evitar bloqueio.")
-                    break
-                sleep_time = min(backoff, max_backoff)
-                print(f"⚠️ API Agendor (tasks) 429 — aguardando {sleep_time:.1f}s (ocorrência {consecutive_429})")
-                time.sleep(sleep_time)
-                backoff = min(backoff * 1.5, max_backoff)
-                continue
-
-            consecutive_429 = 0
-            backoff = 0.4
-
-            if response.status_code != 200:
-                print(f"❌ Erro da API Agendor (tasks): {response.status_code} | {response.text}")
-                break
-
-            data = response.json()
-            registros = data.get("data") or []
-
-            for registro in registros:
-                consultor_id, consultor_nome = _normalize_assigned_user(
-                    registro.get("assignedUsers"),
-                    registro.get("user"),
-                )
-                task_type = (registro.get("type") or "").upper()
-
-                all_tasks.append(
-                    {
-                        "ID": registro.get("id"),
-                        "Tipo": task_type,
-                        "Titulo": registro.get("text") or registro.get("title") or "",
-                        "Data": registro.get("dueDate") or registro.get("datetime") or registro.get("date"),
-                        "FinalizadaEm": registro.get("finishedAt"),
-                        "Concluida": bool(registro.get("finishedAt")),
-                        "DealId": (registro.get("deal") or {}).get("id"),
-                        "ConsultorId": consultor_id,
-                        "Consultor": consultor_nome or "Desconhecido",
-                    }
-                )
-
-            print(f"[tasks] {len(registros)} tarefas carregadas (pagina {page})")
-
-            links = data.get("links") or {}
-            meta = data.get("meta") or {}
-            has_next = bool(links.get("next")) or bool(meta.get("hasNextPage"))
-
-            # Respeita hasNext mesmo com página cheia; fallback apenas se a API não mandar hasNext.
-            if not has_next:
-                break
-
-            page += 1
-
-            time.sleep(0.4)
-
-        except Exception as exc:  # pragma: no cover - log defensivo
-            print(f"❌ Erro ao buscar tarefas: {exc}")
+        response = AGENDOR_CLIENT.request(
+            "GET",
+            f"{API_BASE_URL}/tasks",
+            headers={**API_AUTH_HEADER, "Content-Type": "application/json"},
+            params=query_params,
+            timeout=20,
+        )
+        if not response:
             break
+
+        if response.status_code != 200:
+            print(f"Erro da API Agendor (tasks): {response.status_code} | {response.text}")
+            break
+
+        data = response.json()
+        registros = data.get("data") or []
+
+        for registro in registros:
+            consultor_id, consultor_nome = _normalize_assigned_user(
+                registro.get("assignedUsers"),
+                registro.get("user"),
+            )
+            task_type = (registro.get("type") or "").upper()
+
+            all_tasks.append({
+                "ID": registro.get("id"),
+                "Tipo": task_type,
+                "Titulo": registro.get("text") or registro.get("title") or "",
+                "Data": registro.get("dueDate") or registro.get("datetime") or registro.get("date"),
+                "FinalizadaEm": registro.get("finishedAt"),
+                "Concluida": bool(registro.get("finishedAt")),
+                "DealId": (registro.get("deal") or {}).get("id"),
+                "ConsultorId": consultor_id,
+                "Consultor": consultor_nome or "Desconhecido",
+            })
+
+        print(f"[tasks] {len(registros)} tarefas carregadas (pagina {page})")
+
+        links = data.get("links") or {}
+        meta = data.get("meta") or {}
+        has_next = bool(links.get("next")) or bool(meta.get("hasNextPage"))
+        if not has_next:
+            break
+
+        page += 1
+        time.sleep(0.4)
 
     return all_tasks
 
 
 def fetch_deal_meta(params):
-    response = requests.get(API_URL, headers=API_AUTH_HEADER, params=params)
+    response = AGENDOR_CLIENT.request("GET", API_URL, headers=API_AUTH_HEADER, params=params, timeout=20)
+    if not response or response.status_code != 200:
+        status = response.status_code if response else "sem resposta"
+        print(f"Erro da API Agendor (meta): {status}")
+        return 0
     data = response.json().get("meta", {})
     return data.get("totalCount", 0)
