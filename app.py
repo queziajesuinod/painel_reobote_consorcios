@@ -292,6 +292,41 @@ def listar_negocios_ganhos():
     return negocios
 
 
+def agrupar_negocios_ganhos_por_consultor():
+    hoje = datetime.now()
+    inicio_mes = date(hoje.year, hoje.month, 1)
+    params_mes = dict(params_ganhos, since=inicio_mes.strftime('%Y-%m-%d'))
+    ganhos = fetch_deal_data(params_mes)
+    consultores = {}
+
+    for registro in ganhos:
+        data_ganho = data_negocio(registro)
+        if not data_ganho or data_ganho.year != hoje.year or data_ganho.month != hoje.month:
+            continue
+        consultor_nome = registro.get('Consultor') or 'Sem consultor'
+        valor = float(registro.get('Valor do Negócio') or 0)
+        nome_negocio = registro.get('Nome') or registro.get('Etapa') or f"Negócio #{registro.get('ID')}"
+
+        registro_bounded = {
+            'nome': nome_negocio,
+            'valor': valor,
+            'data_ganho': data_ganho.strftime('%Y-%m-%d %H:%M:%S')
+        }
+
+        entry = consultores.setdefault(consultor_nome, {
+            'consultor': consultor_nome,
+            'total': 0.0,
+            'negocios': []
+        })
+        entry['total'] += valor
+        entry['negocios'].append(registro_bounded)
+
+    for entry in consultores.values():
+        entry['negocios'].sort(key=lambda d: d['valor'], reverse=True)
+
+    return sorted(consultores.values(), key=lambda c: c['total'], reverse=True)
+
+
 def obter_dashboard_tarefas_dados():
     hoje = datetime.now().date()
     inicio_mes = hoje.replace(day=1)
@@ -516,6 +551,8 @@ def analytics():
 
     propagandas_ativas = Propaganda.query.filter_by(ativo=True).all()
 
+    negocios_ganhos = sorted(listar_negocios_ganhos(), key=lambda x: x['valor'], reverse=True)
+
     return render_template('analytics.html',
                            propagandas=propagandas_ativas,
                            vendas_anuais=vendas_anuais,
@@ -534,7 +571,8 @@ def analytics():
                            campanha_ativa=Campanha.query.filter_by(ativo=True).first(),
                            porcentagem_campanha=porcentagem_campanha,
                            texto_campanha=texto_campanha,
-                           cor_campanha=cor_campanha)
+                           cor_campanha=cor_campanha,
+                           negocios_ganhos=negocios_ganhos)
 
 
 @app.route('/console/ganhos-mes')

@@ -169,17 +169,18 @@ def fetch_deal_data(params):
             deal_status = registro.get("dealStatus") or {}
 
             all_data.append({
-                "ID": registro.get("id"),
-                "Valor do Negócio": registro.get("value", 0) or 0,
-                "EtapaId": deal_stage.get("id"),
-                "Etapa": deal_stage.get("name"),
-                "Funil": funnel.get("name"),
-                "Status": deal_status.get("name"),
-                "ConsultorId": owner.get("id") if isinstance(owner, dict) else None,
-                "Consultor": owner.get("name", "Sem consultor") if isinstance(owner, dict) else "Sem consultor",
-                "Data Final": registro.get("endTime"),
-                "Data Ganho": registro.get("wonAt"),
-            })
+                    "ID": registro.get("id"),
+                    "Valor do Negócio": registro.get("value", 0) or 0,
+                    "EtapaId": deal_stage.get("id"),
+                    "Etapa": deal_stage.get("name"),
+                    "Funil": funnel.get("name"),
+                    "Status": deal_status.get("name"),
+                    "ConsultorId": owner.get("id") if isinstance(owner, dict) else None,
+                    "Consultor": owner.get("name", "Sem consultor") if isinstance(owner, dict) else "Sem consultor",
+                    "Data Final": registro.get("endTime"),
+                    "Data Ganho": registro.get("endTime"),
+                    "Nome": registro.get("name") or registro.get("title") or (registro.get("deal") or {}).get("name") or f"Negócio #{registro.get('id')}",
+                })
 
         print(f"[deals] {len(registros)} registros carregados (pagina {current_page})")
 
