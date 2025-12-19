@@ -17,6 +17,7 @@ from utils_agendor import (
 from dateutil import parser
 from collections import defaultdict
 from datetime import datetime, time, date, timedelta
+from time import monotonic
 from flask import flash, has_app_context
 from sqlalchemy import func, or_
 import os, base64, calendar, unicodedata, hashlib, json, threading
@@ -28,6 +29,9 @@ _dashboard_cache = {'dados': None, 'last_update': None}
 _dashboard_cache_lock = threading.Lock()
 _dashboard_stop_event = threading.Event()
 _dashboard_thread = None
+_ultima_venda_cache = {'ultima': None, 'last_check': 0.0}
+_ultima_venda_cache_lock = threading.Lock()
+_ultima_venda_cache_ttl = 30.0
 
 load_dotenv()
 
@@ -471,6 +475,33 @@ def obter_dashboard_cache():
     return dados
 
 
+def obter_ultima_venda_cacheada():
+    agora = monotonic()
+    with _ultima_venda_cache_lock:
+        ultima = _ultima_venda_cache.get('ultima')
+        last_check = _ultima_venda_cache.get('last_check', 0.0)
+        if agora - last_check < _ultima_venda_cache_ttl:
+            return ultima
+        _ultima_venda_cache['last_check'] = agora
+
+    ganhos = fetch_deal_data(params_ganhos)
+    mes_atual = datetime.now().month
+    ano_atual = datetime.now().year
+    ultima_dt = None
+    for ganho in ganhos:
+        data_ref = data_negocio(ganho)
+        if not data_ref or data_ref.month != mes_atual or data_ref.year != ano_atual:
+            continue
+        if ultima_dt is None or data_ref > ultima_dt:
+            ultima_dt = data_ref
+
+    ultima_str = ultima_dt.strftime('%Y-%m-%d %H:%M:%S') if ultima_dt else None
+    with _ultima_venda_cache_lock:
+        _ultima_venda_cache['ultima'] = ultima_str
+        _ultima_venda_cache['last_check'] = agora
+    return ultima_str
+
+
 def _dashboard_updater_loop(intervalo=600):
     while not _dashboard_stop_event.is_set():
         atualizar_cache_dashboard()
@@ -621,19 +652,12 @@ def api_dashboard_tarefas():
 
 @app.route('/verificar-novas-vendas')
 def verificar_novas_vendas():
-    ganhos = fetch_deal_data(params_ganhos)
-    mes_atual = datetime.now().month
-    ano_atual = datetime.now().year
-
-    ganhos_mes = [g for g in ganhos if g['Data Final'] and parser.parse(g['Data Final']).month == mes_atual and parser.parse(g['Data Final']).year == ano_atual]
-    ganhos_mes_com_ganho = [g for g in ganhos_mes if parse_dt_safe(g.get('Data Ganho'))]
-    ultima = max(ganhos_mes_com_ganho, key=lambda g: parse_dt_safe(g['Data Ganho']), default=None)
-    if not ultima:
+    ultima_venda = obter_ultima_venda_cacheada()
+    if not ultima_venda:
         return jsonify({'temNovaVenda': False})
 
-    data_ultima_venda = parser.parse(ultima['Data Ganho']).strftime('%Y-%m-%d %H:%M:%S')
-    if data_ultima_venda != session.get('ultima_venda_registrada'):
-        session['ultima_venda_registrada'] = data_ultima_venda
+    if ultima_venda != session.get('ultima_venda_registrada'):
+        session['ultima_venda_registrada'] = ultima_venda
         return jsonify({'temNovaVenda': True})
 
     return jsonify({'temNovaVenda': False})

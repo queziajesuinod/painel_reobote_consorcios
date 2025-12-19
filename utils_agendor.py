@@ -1,6 +1,7 @@
 import os
 import threading
 import time
+from queue import Queue
 from datetime import datetime
 from email.utils import parsedate_to_datetime
 
@@ -35,15 +36,37 @@ class RateLimiter:
         self._interval = 1.0 / rate_per_second
         self._lock = threading.Lock()
         self._last_call = 0.0
+        self._blocked_until = 0.0
 
     def wait_for_slot(self):
         with self._lock:
             now = time.monotonic()
+            if now < self._blocked_until:
+                time.sleep(self._blocked_until - now)
+                now = time.monotonic()
             next_allowed = self._last_call + self._interval
             if now < next_allowed:
                 time.sleep(next_allowed - now)
-                now = next_allowed
+                now = time.monotonic()
             self._last_call = now
+
+    def block_for(self, delay):
+        if delay <= 0:
+            return
+        with self._lock:
+            now = time.monotonic()
+            blocked_until = now + delay
+            if blocked_until > self._blocked_until:
+                self._blocked_until = blocked_until
+
+
+class _QueuedRequest:
+    def __init__(self, method, url, kwargs):
+        self.method = method
+        self.url = url
+        self.kwargs = kwargs
+        self.response = None
+        self.done = threading.Event()
 
 
 class AgendorAPIClient:
@@ -54,21 +77,37 @@ class AgendorAPIClient:
         self._session.mount("http://", adapter)
 
         self._rate_limiter = RateLimiter(rate_per_second=rate_per_second)
-        self._lock = threading.Lock()
         self._max_retries = max_retries
+        self._queue = Queue()
+        self._worker = threading.Thread(target=self._run, daemon=True)
+        self._worker.start()
 
     def request(self, method, url, **kwargs):
-        with self._lock:
-            self._rate_limiter.wait_for_slot()
-            return self._send_with_retries(method, url, **kwargs)
+        item = _QueuedRequest(method, url, kwargs)
+        self._queue.put(item)
+        item.done.wait()
+        return item.response
+
+    def _run(self):
+        while True:
+            item = self._queue.get()
+            try:
+                item.response = self._send_with_retries(item.method, item.url, **item.kwargs)
+            except Exception as exc:
+                print(f"[Agendor] erro no worker de requests: {exc}")
+                item.response = None
+            finally:
+                item.done.set()
+                self._queue.task_done()
 
     def _send_with_retries(self, method, url, **kwargs):
-        backoff = 0.4
-        max_backoff = 6
+        backoff = 0.6
+        max_backoff = 8
         attempt = 0
 
         while attempt < self._max_retries:
             attempt += 1
+            self._rate_limiter.wait_for_slot()
             try:
                 response = self._session.request(method, url, **kwargs)
             except requests.RequestException as exc:
@@ -80,16 +119,19 @@ class AgendorAPIClient:
                 continue
 
             if response.status_code == 429:
-                retry_delay = _parse_retry_after(response.headers.get("Retry-After")) or backoff
-                print(f"[Agendor] 429 recebido, aguardando {retry_delay:.1f}s (tentativa {attempt})")
-                time.sleep(retry_delay)
-                backoff = min(backoff * 1.5, max_backoff)
+                retry_delay = _parse_retry_after(response.headers.get("Retry-After"))
+                delay = retry_delay if retry_delay is not None else backoff
+                delay = max(delay, backoff)
+                print(f"[Agendor] 429 recebido, aguardando {delay:.1f}s (tentativa {attempt})")
+                self._rate_limiter.block_for(delay)
+                time.sleep(delay)
+                backoff = min(backoff * 2, max_backoff)
                 continue
 
             if 500 <= response.status_code < 600:
                 print(f"[Agendor] {response.status_code} recebido, tentando novamente (tentativa {attempt})")
                 time.sleep(backoff)
-                backoff = min(backoff * 1.5, max_backoff)
+                backoff = min(backoff * 2, max_backoff)
                 continue
 
             return response
@@ -98,7 +140,7 @@ class AgendorAPIClient:
         return None
 
 
-AGENDOR_CLIENT = AgendorAPIClient()
+AGENDOR_CLIENT = AgendorAPIClient(rate_per_second=3, max_connections=4, max_retries=6)
 
 ano_atual = datetime.now().year
 mes_atual = datetime.now().month
