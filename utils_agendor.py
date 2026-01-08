@@ -2,7 +2,7 @@ import os
 import threading
 import time
 from queue import Queue
-from datetime import datetime
+from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 
 import requests
@@ -25,7 +25,9 @@ def _parse_retry_after(value):
     except ValueError:
         try:
             retry_date = parsedate_to_datetime(value)
-            delta = (retry_date - datetime.utcnow()).total_seconds()
+            if retry_date.tzinfo is None:
+                retry_date = retry_date.replace(tzinfo=timezone.utc)
+            delta = (retry_date - datetime.now(timezone.utc)).total_seconds()
             return max(delta, 0)
         except Exception:
             return None

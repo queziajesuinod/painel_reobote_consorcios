@@ -16,7 +16,7 @@ from utils_agendor import (
 )
 from dateutil import parser
 from collections import defaultdict
-from datetime import datetime, time, date, timedelta
+from datetime import datetime, time, date, timedelta, timezone
 from time import monotonic
 from flask import flash, has_app_context
 from sqlalchemy import func, or_
@@ -457,7 +457,7 @@ def atualizar_cache_dashboard():
         dados = obter_dashboard_tarefas_dados()
         with _dashboard_cache_lock:
             _dashboard_cache['dados'] = dados
-            _dashboard_cache['last_update'] = datetime.utcnow().isoformat()
+            _dashboard_cache['last_update'] = datetime.now(timezone.utc).isoformat()
     except Exception as e:
         print(f"⚠️ Falha ao atualizar cache do dashboard: {e}")
     finally:
