@@ -5,11 +5,17 @@
 {% block main_class %} analytics-shell{% endblock %}
 {% block extra_head %}
 <style>
+  * {
+    box-sizing: border-box;
+  }
+
   .analytics-body {
     background-color: #2c2f33;
     color: #fff;
     min-height: 100vh;
-    padding-top: 0;
+    padding: 0;
+    margin: 0;
+    overflow: hidden;
   }
 
   .analytics-body footer {
@@ -22,24 +28,55 @@
     color: #fff;
   }
 
+  /* Container principal com duas colunas 50/50 */
+  .analytics-container {
+    display: flex;
+    width: 100vw;
+    height: 100vh;
+    gap: 0;
+  }
+
+  /* Coluna esquerda - Propagandas (50%) */
+  .propaganda-column {
+    width: 60%;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+    overflow: hidden;
+  }
+
+  /* Coluna direita - Informações (50%) */
+  .info-column {
+    width: 40%;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    padding: 20px;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+
   .carousel-wrapper {
+    width: 100%;
+    height: 100%;
     overflow: hidden;
     border-radius: 1rem;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.55);
-    min-height: clamp(280px, 38vw, 620px);
-    height: 100%;
   }
 
   .carousel-inner,
   .carousel-item {
-    min-height: 100%;
+    width: 100%;
     height: 100%;
   }
 
   .carousel-item img {
     width: 100%;
-    height: auto;
-    max-height: 100%;
+    height: 100%;
     object-fit: cover;
   }
 
@@ -61,8 +98,9 @@
     justify-content: center;
     align-items: flex-end;
     gap: 15px;
-    margin-top: 30px;
+    margin-top: 20px;
     padding: 0.2rem 0 0;
+    flex-wrap: nowrap;
   }
 
   .ranking-item {
@@ -72,14 +110,14 @@
     position: relative;
     text-align: center;
     flex: 0 0 auto;
-    width: min(160px, 18vw);
+    width: min(140px, 15vw);
     overflow: visible;
   }
 
   .ranking-item img:not(.coroa),
   .ranking-item .sem-foto {
-    width: 100px;
-    height: 100px;
+    width: 80px;
+    height: 80px;
     object-fit: cover;
     border-radius: 50%;
     border: 4px solid #ddd;
@@ -91,26 +129,26 @@
     justify-content: center;
     background: #ddd;
     color: #666;
-    font-size: 0.85rem;
+    font-size: 0.75rem;
   }
 
   .ranking-item .nome {
-    margin-top: 0.75rem;
+    margin-top: 0.5rem;
     font-weight: 600;
-    font-size: 1rem;
+    font-size: 0.85rem;
   }
 
   .ranking-item .total {
     color: #ccc;
-    font-size: 0.9rem;
+    font-size: 0.8rem;
   }
 
   .ranking-item .coroa {
-    width: 52px;
-    height: 52px;
+    width: 40px;
+    height: 40px;
     padding: 4px;
     position: absolute;
-    top: -32px;
+    top: -25px;
     left: 50%;
     transform: translateX(-50%);
     z-index: 10;
@@ -120,181 +158,259 @@
 
   .ranking-card {
     overflow: visible;
-    align-self: center;
-    width: min(360px, 100%);
-    padding-top: 2.25rem;
+    padding: 15px;
+    flex-shrink: 0;
   }
 
-  .analytics-columns {
-    min-height: clamp(360px, 60vh, 520px);
+  .ranking-card h5 {
+    font-size: 0.95rem;
+    margin-bottom: 10px;
   }
 
-  .analytics-columns .col-lg-9,
-  .analytics-columns .col-lg-3 {
-    display: flex;
-    flex-direction: column;
-  }
-
-  .analytics-columns .card:not(.ranking-card),
-  .analytics-columns .carousel-wrapper {
+  /* Card de informações principais */
+  .info-card {
     flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 15px;
+    border-radius: 0.5rem;
+  }
+
+  .info-card .card-body {
+    padding: 15px;
+  }
+
+  .info-card h6 {
+    font-size: 0.85rem;
+    margin-bottom: 8px;
+  }
+
+  .info-card h2 {
+    font-size: 1.5rem;
+    margin-bottom: 10px;
+  }
+
+  .info-card .progress {
+    height: 20px;
+    margin-bottom: 10px;
+  }
+
+  .info-card .progress-bar {
+    font-size: 0.75rem;
+    line-height: 20px;
+  }
+
+  .info-card hr {
+    margin: 10px 0;
+  }
+
+  .info-card .row {
+    margin-bottom: 10px;
+  }
+
+  .info-card .col {
+    padding: 5px;
+  }
+
+  /* Scrollbar customizada */
+  .info-column::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  .info-column::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.1);
+  }
+
+  .info-column::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 4px;
+  }
+
+  .info-column::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.5);
+  }
+
+  /* Responsivo para diferentes tamanhos de tela */
+  @media (max-width: 1200px) {
+    .ranking-item {
+      width: min(120px, 12vw);
+    }
+
+    .ranking-item img:not(.coroa),
+    .ranking-item .sem-foto {
+      width: 70px;
+      height: 70px;
+    }
+
+    .ranking-item .nome {
+      font-size: 1.55rem;
+    }
+
+    .ranking-item .total {
+      font-size: 1.7rem;
+    }
   }
 
   @media (max-width: 992px) {
-    .carousel-inner,
-    .carousel-item {
-      min-height: 300px;
+    /* Em telas menores, manter as duas colunas mas ajustar proporções */
+    .analytics-container {
+      flex-direction: column;
     }
 
-    .ranking-container {
-      margin-top: 20px;
+    .propaganda-column {
+      width: 100%;
+      height: 50vh;
+    }
+
+    .info-column {
+      width: 100%;
+      height: 50vh;
     }
   }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="container-fluid px-0 py-4">
-    <div class="row gx-0 gy-4 align-items-stretch analytics-columns">
-        <div class="col-lg-8 d-flex flex-column h-100">
-            <div class="carousel-wrapper">
-                <div id="carouselExample" class="carousel slide h-100" data-bs-ride="carousel" data-bs-interval="5000">
-                    <div class="carousel-inner h-100">
-                        {% for p in propagandas %}
-                        <div class="carousel-item {% if loop.index0 == 0 %}active{% endif %} h-100">
-                            <img src="data:image/png;base64,{{ p.imagem_base64 }}" alt="{{ p.titulo }}"
-                                class="d-block w-100 h-100">
-                        </div>
-                        {% endfor %}
-                    </div>
-                    <button class="carousel-control-prev" type="button" data-bs-target="#carouselExample"
-                        data-bs-slide="prev">
-                        <span class="carousel-control-prev-icon" aria-hidden="true"></span>
-                    </button>
-                    <button class="carousel-control-next" type="button" data-bs-target="#carouselExample"
-                        data-bs-slide="next">
-                        <span class="carousel-control-next-icon" aria-hidden="true"></span>
-                    </button>
-                </div>
-            </div>
+<div class="analytics-container">
+  <!-- Coluna Esquerda: Propagandas -->
+  <div class="propaganda-column">
+    <div class="carousel-wrapper">
+      <div id="carouselExample" class="carousel slide h-100" data-bs-ride="carousel" data-bs-interval="5000">
+        <div class="carousel-inner h-100">
+          {% for p in propagandas %}
+          <div class="carousel-item {% if loop.index0 == 0 %}active{% endif %} h-100">
+            <img src="data:image/png;base64,{{ p.imagem_base64 }}" alt="{{ p.titulo }}"
+              class="d-block w-100 h-100">
+          </div>
+          {% endfor %}
         </div>
-
-        <div class="col-lg-4 d-flex flex-column gap-3 h-100">
-            <div class="card text-white h-100">
-                <div class="card-body d-flex flex-column justify-content-between h-100">
-                    <div>
-                        <div class="row text-center">
-                            <div class="col">
-                                <h6>Vendas Anuais</h6>
-                                <h6>R$ {{ vendas_anuais | format_valor }}</h6>
-                            </div>
-                            <div class="col">
-                                <h6>Vendas Anuais Cotas</h6>
-                                <h6>R$ {{ vendas_cotas | format_valor }}</h6>
-                            </div>
-                        </div>
-                        <div class="row text-center mt-3">
-                            <div class="col">
-                                <h6>Vendas do Mês: {{ nome_mes }}</h6>
-                                <h2>R$ {{ vendas_mes | format_valor }}</h2>
-                            </div>
-                        </div>
-                        <hr class="border-light opacity-50">
-                        <h6>Churrascômetro:</h6>
-                        <div class="progress mb-3">
-                            <div class="progress-bar bg-{{ cor_churras }}" role="progressbar"
-                                style="width: {{ porcentagem_churras }}%" aria-valuenow="{{ porcentagem_churras }}"
-                                aria-valuemin="0" aria-valuemax="100">
-                                {{ texto_churras }}
-                            </div>
-                        </div>
-                        <h6>Última Venda:</h6>
-                        {% if ultima_consultora %}
-                        <div class="ultima-venda d-flex flex-column align-items-center mb-3">
-                            <div class="d-flex align-items-center mb-3 gap-2">
-                                {% if ultima_consultora.imagem_base64 %}
-                                <img src="data:image/png;base64,{{ ultima_consultora.imagem_base64 }}"
-                                    class="rounded-circle profile-img">
-                                {% else %}
-                                <img src="/static/reobot.png" class="rounded-circle profile-img">
-                                {% endif %}
-                                <div class="text-center">
-                                    <p class="mb-0 fw-semibold">{{ ultima_consultora.nome }}</p>
-                                    <small class="text-muted">{{ ultima_consultora.cidade }}</small>
-                                </div>
-                            </div>
-                            <div class="text-center">
-                                <small>Data de Fechamento: {{ ultima_consultora.data }}</small><br>
-                                <strong class="h5">R$ {{ ultima_consultora.valor | format_valor }}</strong>
-                            </div>
-                        </div>
-                        {% else %}
-                        <p>Sem vendas este mês</p>
-                        {% endif %}
-                    </div>
-                    <div class="mt-4">
-                        <hr class="border-light opacity-50">
-                        <div class="row text-center">
-                            <div class="col-6">
-                                <h6>Prospecção</h6>
-                                <p class="display-6 mb-0">{{ prospeccao }}</p>
-                            </div>
-                            <div class="col-6">
-                                <h6>Quentes</h6>
-                                <p class="display-6 mb-0">{{ quentes }}</p>
-                            </div>
-                        </div>
-                        {% if campanha_ativa %}
-                        <hr class="border-light opacity-50">
-                        <div>
-                            <h6 class="text-center">Campanha {{ campanha_ativa.nome }}</h6>
-                            <p class="text-center text-white-50 mb-1">
-                                Meta: R$ {{ meta_campanha | format_valor }} &mdash; Atual: R$ {{ valor_atual |
-                                format_valor }}
-                            </p>
-                            <div class="progress">
-                                <div class="progress-bar bg-{{ cor_campanha }}" role="progressbar"
-                                    style="width: {{ porcentagem_campanha }}%;" aria-valuenow="{{ porcentagem_campanha }}"
-                                    aria-valuemin="0" aria-valuemax="100">
-                                    {{ texto_campanha }}
-                                </div>
-                            </div>
-                        </div>
-                        {% endif %}
-                    </div>
-                </div>
-            </div>
-
-            <div class="card p-34 ranking-card text-white">
-                <h5 class="mb-0">Ranking de Empresas Parceiras</h5>
-                <div class="ranking-container">
-                    {% set ordem_podio = [1, 0, 2] %}
-                    {% for i in ordem_podio %}
-                    {% if ranking | length > i %}
-                    {% set r = ranking[i] %}
-                    <div class="ranking-item"
-                        style="margin-bottom: {% if i == 0 %}30px{% elif i == 1 %}15px{% else %}0{% endif %};">
-                        {% if i == 0 %}
-                        <img src="{{ url_for('static', filename='coroa.png') }}" alt="Coroa"
-                            class="coroa">
-                        {% endif %}
-                        {% if r.imagem_base64 %}
-                        <img src="data:image/png;base64,{{ r.imagem_base64 }}" alt="Consultor">
-                        {% else %}
-                        <div class="sem-foto">
-                            Sem foto
-                        </div>
-                        {% endif %}
-                        <div class="nome">{{ r.nome }}</div>
-                        <div class="total">R$ {{ r.total | format_valor }}</div>
-                    </div>
-                    {% endif %}
-                    {% endfor %}
-                </div>
-            </div>
-        </div>
+        <button class="carousel-control-prev" type="button" data-bs-target="#carouselExample"
+          data-bs-slide="prev">
+          <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+        </button>
+        <button class="carousel-control-next" type="button" data-bs-target="#carouselExample"
+          data-bs-slide="next">
+          <span class="carousel-control-next-icon" aria-hidden="true"></span>
+        </button>
+      </div>
     </div>
+  </div>
+
+  <!-- Coluna Direita: Informações -->
+  <div class="info-column">
+    <!-- Card de Informações Principais -->
+    <div class="card text-white info-card">
+      <div class="card-body">
+        <div class="row text-center">
+          <div class="col">
+            <h4>Vendas Anuais</h4>
+            <h4>R$ {{ vendas_anuais | format_valor }}</h4>
+          </div>
+          <div class="col">
+            <h4>Vendas Anuais Cotas</h4>
+            <h4>R$ {{ vendas_cotas | format_valor }}</h4>
+          </div>
+        </div>
+        <div class="row text-center mt-2">
+          <div class="col">
+            <h4>Vendas do Mês: {{ nome_mes }}</h4>
+            <h1>R$ {{ vendas_mes | format_valor }}</h1>
+          </div>
+        </div>
+        <hr class="border-light opacity-50">
+        <h6>Churrascômetro:</h6>
+        <div class="progress mb-3">
+          <div class="progress-bar bg-{{ cor_churras }}" role="progressbar"
+            style="width: {{ porcentagem_churras }}%" aria-valuenow="{{ porcentagem_churras }}"
+            aria-valuemin="0" aria-valuemax="100">
+            {{ texto_churras }}
+          </div>
+        </div>
+        <h6>Última Venda:</h6>
+        {% if ultima_consultora %}
+        <div class="ultima-venda d-flex flex-column align-items-center mb-3">
+          <div class="d-flex align-items-center mb-2 gap-2">
+            {% if ultima_consultora.imagem_base64 %}
+            <img src="data:image/png;base64,{{ ultima_consultora.imagem_base64 }}"
+              class="rounded-circle profile-img">
+            {% else %}
+            <img src="/static/reobot.png" class="rounded-circle profile-img">
+            {% endif %}
+            <div class="text-center">
+              <p class="mb-0 fw-semibold" style="font-size: 1.7rem;">{{ ultima_consultora.nome }}</p>
+              <small class="text-muted">{{ ultima_consultora.cidade }}</small>
+            </div>
+          </div>
+          <div class="text-center">
+            <small>Data de Fechamento: {{ ultima_consultora.data }}</small><br>
+            <strong style="font-size: 1.7rem;">R$ {{ ultima_consultora.valor | format_valor }}</strong>
+          </div>
+        </div>
+        {% else %}
+        <p style="font-size: 0.9rem;">Sem vendas este mês</p>
+        {% endif %}
+        <hr class="border-light opacity-50">
+        <div class="row text-center">
+          <div class="col-6">
+            <h6>Prospecção</h6>
+            <p style="font-size: 2.0rem; margin-bottom: 0;">{{ prospeccao }}</p>
+          </div>
+          <div class="col-6">
+            <h6>Quentes</h6>
+            <p style="font-size: 2.0rem; margin-bottom: 0;">{{ quentes }}</p>
+          </div>
+        </div>
+        {% if campanha_ativa %}
+        <hr class="border-light opacity-50">
+        <div>
+          <h6 class="text-center">Campanha {{ campanha_ativa.nome }}</h6>
+          <p class="text-center text-white-50 mb-1" style="font-size: 0.8rem;">
+            Meta: R$ {{ meta_campanha | format_valor }} &mdash; Atual: R$ {{ valor_atual |
+            format_valor }}
+          </p>
+          <div class="progress">
+            <div class="progress-bar bg-{{ cor_campanha }}" role="progressbar"
+              style="width: {{ porcentagem_campanha }}%;" aria-valuenow="{{ porcentagem_campanha }}"
+              aria-valuemin="0" aria-valuemax="100">
+              {{ texto_campanha }}
+            </div>
+          </div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Card de Ranking -->
+    <div class="card text-white ranking-card">
+      <h5 class="mb-0">Ranking de Empresas Parceiras</h5>
+      <div class="ranking-container">
+        {% set ordem_podio = [1, 0, 2] %}
+        {% for i in ordem_podio %}
+        {% if ranking | length > i %}
+        {% set r = ranking[i] %}
+        <div class="ranking-item"
+          style="margin-bottom: {% if i == 0 %}20px{% elif i == 1 %}10px{% else %}0{% endif %};">
+          {% if i == 0 %}
+          <img src="{{ url_for('static', filename='coroa.png') }}" alt="Coroa"
+            class="coroa">
+          {% endif %}
+          {% if r.imagem_base64 %}
+          <img src="data:image/png;base64,{{ r.imagem_base64 }}" alt="Consultor">
+          {% else %}
+          <div class="sem-foto">
+            Sem foto
+          </div>
+          {% endif %}
+          <div class="nome">{{ r.nome }}</div>
+          <div class="total">R$ {{ r.total | format_valor }}</div>
+        </div>
+        {% endif %}
+        {% endfor %}
+      </div>
+    </div>
+  </div>
 </div>
+
 <script src="{{ url_for('static', filename='js/fireworks.js') }}"></script>
 <script>
   function dispararConfete() {
