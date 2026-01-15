@@ -7,12 +7,21 @@
 <style>
   * {
     box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  html, body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
   }
 
   .analytics-body {
     background-color: #2c2f33;
     color: #fff;
-    min-height: 100vh;
+    width: 100%;
+    height: 100%;
     padding: 0;
     margin: 0;
     overflow: hidden;
@@ -28,15 +37,16 @@
     color: #fff;
   }
 
-  /* Container principal com duas colunas 50/50 */
+  /* Container principal com duas colunas FIXAS 50/50 */
   .analytics-container {
     display: flex;
-    width: 100vw;
-    height: 100vh;
+    width: 100%;
+    height: 100%;
     gap: 0;
+    flex-wrap: nowrap;
   }
 
- 
+  /* Coluna esquerda - Propagandas (60%) */
   .propaganda-column {
     width: 60%;
     height: 100%;
@@ -44,20 +54,20 @@
     flex-direction: column;
     justify-content: center;
     align-items: center;
-    padding: 15px;
+    padding: 10px;
     overflow: hidden;
     flex-shrink: 0;
   }
 
+  /* Coluna direita - Informações (40%) */
   .info-column {
     width: 40%;
     height: 100%;
     display: flex;
     flex-direction: column;
-    gap: 12px;
-    padding: 15px;
-    overflow-y: auto;
-    overflow-x: hidden;
+    gap: 8px;
+    padding: 10px;
+    overflow: hidden;
     flex-shrink: 0;
   }
 
@@ -67,6 +77,7 @@
     overflow: hidden;
     border-radius: 1rem;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.55);
+    flex-shrink: 0;
   }
 
   .carousel-inner,
@@ -87,41 +98,43 @@
   }
 
   .profile-img {
-    width: 70px;
-    height: 70px;
+    width: 50px;
+    height: 50px;
     object-fit: cover;
     border-radius: 50%;
-    border: 3px solid rgba(255, 255, 255, 0.35);
+    border: 2px solid rgba(255, 255, 255, 0.35);
+    flex-shrink: 0;
   }
 
   .ranking-container {
     display: flex;
     justify-content: center;
     align-items: flex-end;
-    gap: 15px;
-    margin-top: 20px;
-    padding: 0.2rem 0 0;
+    gap: 8px;
+    margin-top: 8px;
+    padding: 0;
     flex-wrap: nowrap;
   }
 
   .ranking-item {
     border-radius: 1rem;
-    padding: 12px 12px 18px;
-    min-width: 140px;
+    padding: 8px 8px 12px;
     position: relative;
     text-align: center;
     flex: 0 0 auto;
-    width: min(140px, 15vw);
+    width: 110px;
     overflow: visible;
+    flex-shrink: 0;
   }
 
   .ranking-item img:not(.coroa),
   .ranking-item .sem-foto {
-    width: 80px;
-    height: 80px;
+    width: 65px;
+    height: 65px;
     object-fit: cover;
     border-radius: 50%;
-    border: 4px solid #ddd;
+    border: 3px solid #ddd;
+    margin: 0 auto;
   }
 
   .ranking-item .sem-foto {
@@ -130,225 +143,160 @@
     justify-content: center;
     background: #ddd;
     color: #666;
-    font-size: 0.75rem;
+    font-size: 0.65rem;
   }
 
   .ranking-item .nome {
-    margin-top: 0.5rem;
+    margin-top: 0.3rem;
     font-weight: 600;
-    font-size: 0.85rem;
+    font-size: 0.7rem;
+    word-break: break-word;
   }
 
   .ranking-item .total {
     color: #ccc;
-    font-size: 0.8rem;
+    font-size: 0.65rem;
   }
 
   .ranking-item .coroa {
-    width: 40px;
-    height: 40px;
-    padding: 4px;
+    width: 30px;
+    height: 30px;
+    padding: 2px;
     position: absolute;
-    top: -25px;
+    top: -18px;
     left: 50%;
     transform: translateX(-50%);
     z-index: 10;
     border: none;
     background: transparent;
-  }
-
-  .ranking-card {
-    overflow: visible;
-    padding: 15px;
     flex-shrink: 0;
-  }
-
-  .ranking-card h5 {
-    font-size: 0.95rem;
-    margin-bottom: 10px;
   }
 
   /* Card de informações principais */
   .info-card {
     flex: 1;
     min-height: 0;
-    overflow-y: auto;
-    padding: 15px;
+    overflow: hidden;
+    padding: 10px;
     border-radius: 0.5rem;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
   }
 
   .info-card .card-body {
-    padding: 15px;
+    padding: 10px;
+    overflow-y: auto;
+    flex: 1;
   }
 
   .info-card h6 {
-    font-size: 0.85rem;
-    margin-bottom: 8px;
+    font-size: 0.75rem;
+    margin-bottom: 4px;
+    font-weight: 600;
   }
 
   .info-card h2 {
-    font-size: 1.5rem;
-    margin-bottom: 10px;
+    font-size: 1.1rem;
+    margin-bottom: 6px;
   }
 
   .info-card .progress {
-    height: 20px;
-    margin-bottom: 10px;
+    height: 16px;
+    margin-bottom: 6px;
   }
 
   .info-card .progress-bar {
-    font-size: 0.75rem;
-    line-height: 20px;
+    font-size: 0.65rem;
+    line-height: 16px;
   }
 
   .info-card hr {
-    margin: 10px 0;
+    margin: 6px 0;
+    opacity: 0.5;
   }
 
   .info-card .row {
-    margin-bottom: 10px;
+    margin-bottom: 6px;
   }
 
   .info-card .col {
-    padding: 5px;
+    padding: 2px;
+  }
+
+  .info-card p {
+    margin-bottom: 3px;
+    font-size: 0.75rem;
+  }
+
+  .info-card .display-6 {
+    font-size: 1.2rem;
+    margin-bottom: 0;
+  }
+
+  /* Card de ranking */
+  .ranking-card {
+    overflow: visible;
+    padding: 10px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .ranking-card h5 {
+    font-size: 0.8rem;
+    margin-bottom: 6px;
   }
 
   /* Scrollbar customizada */
-  .info-column::-webkit-scrollbar {
-    width: 8px;
+  .info-card .card-body::-webkit-scrollbar {
+    width: 4px;
   }
 
-  .info-column::-webkit-scrollbar-track {
-    background: rgba(255, 255, 255, 0.1);
+  .info-card .card-body::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.05);
   }
 
-  .info-column::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.3);
-    border-radius: 4px;
+  .info-card .card-body::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 2px;
   }
 
-  .info-column::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 255, 255, 0.5);
+  .info-card .card-body::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.4);
   }
 
-  /* Responsivo para diferentes tamanhos de tela */
-  @media (max-width: 1200px) {
-    .ranking-item {
-      width: min(120px, 12vw);
-    }
-
-    .ranking-item img:not(.coroa),
-    .ranking-item .sem-foto {
-      width: 70px;
-      height: 70px;
-    }
-
-    .ranking-item .nome {
-      font-size: 1.55rem;
-    }
-
-    .ranking-item .total {
-      font-size: 1.7rem;
-    }
-  }
-
-   /* Remove qualquer responsividade - layout SEMPRE 50/50 */
+  /* Força layout 50/50 em TODAS as resoluções */
   @media (max-width: 2560px) {
-    .analytics-container {
-      display: flex;
-      width: 100%;
-      height: 100%;
-    }
-
-   .propaganda-column {
-      width: 60%;
-      height: 100%;
-    }
-
-    .info-column {
-      width: 40%;
-      height: 100%;
-    }
+    .propaganda-column { width: 60%; height: 100%; }
+    .info-column { width: 40%; height: 100%; }
   }
 
   @media (max-width: 1920px) {
-    .analytics-container {
-      display: flex;
-      width: 100%;
-      height: 100%;
-    }
-
-   .propaganda-column {
-      width: 60%;
-      height: 100%;
-    }
-
-    .info-column {
-      width: 40%;
-      height: 100%;
-    }
+    .propaganda-column { width: 60%; height: 100%; }
+    .info-column { width: 40%; height: 100%; }
   }
 
   @media (max-width: 1280px) {
-    .analytics-container {
-      display: flex;
-      width: 100%;
-      height: 100%;
-    }
-
-    .propaganda-column {
-      width: 60%;
-      height: 100%;
-    }
-
-    .info-column {
-      width: 40%;
-      height: 100%;
-    }
+    .propaganda-column { width: 60%; height: 100%; }
+    .info-column { width: 40%; height: 100%; }
   }
 
   @media (max-width: 768px) {
-    .analytics-container {
-      display: flex;
-      width: 100%;
-      height: 100%;
-    }
-
-    .propaganda-column {
-      width: 60%;
-      height: 100%;
-    }
-
-    .info-column {
-      width: 40%;
-      height: 100%;
-    }
+    .propaganda-column { width: 60%; height: 100%; }
+    .info-column { width: 40%; height: 100%; }
   }
 
   @media (max-width: 480px) {
-    .analytics-container {
-      display: flex;
-      width: 100%;
-      height: 100%;
-    }
-
-    .propaganda-column {
-      width: 60%;
-      height: 100%;
-    }
-
-    .info-column {
-      width: 40%;
-      height: 100%;
-    }
+    .propaganda-column { width: 60%; height: 100%; }
+    .info-column { width: 40%; height: 100%; }
   }
-
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="analytics-container">
-  <!-- Coluna Esquerda: Propagandas -->
+  <!-- Coluna Esquerda: Propagandas (50% FIXO) -->
   <div class="propaganda-column">
     <div class="carousel-wrapper">
       <div id="carouselExample" class="carousel slide h-100" data-bs-ride="carousel" data-bs-interval="5000">
@@ -372,30 +320,30 @@
     </div>
   </div>
 
-  <!-- Coluna Direita: Informações -->
+  <!-- Coluna Direita: Informações (50% FIXO) -->
   <div class="info-column">
     <!-- Card de Informações Principais -->
     <div class="card text-white info-card">
       <div class="card-body">
         <div class="row text-center">
           <div class="col">
-            <h4>Vendas Anuais</h4>
-            <h4>R$ {{ vendas_anuais | format_valor }}</h4>
+            <h6>Vendas Anuais</h6>
+            <p>R$ {{ vendas_anuais | format_valor }}</p>
           </div>
           <div class="col">
-            <h4>Vendas Anuais Cotas</h4>
-            <h4>R$ {{ vendas_cotas | format_valor }}</h4>
+            <h6>Vendas Cotas</h6>
+            <p>R$ {{ vendas_cotas | format_valor }}</p>
           </div>
         </div>
-        <div class="row text-center mt-2">
+        <div class="row text-center">
           <div class="col">
-            <h4>Vendas do Mês: {{ nome_mes }}</h4>
-            <h1>R$ {{ vendas_mes | format_valor }}</h1>
+            <h6>Vendas {{ nome_mes }}</h6>
+            <h2>R$ {{ vendas_mes | format_valor }}</h2>
           </div>
         </div>
-        <hr class="border-light opacity-50">
+        <hr class="border-light">
         <h6>Churrascômetro:</h6>
-        <div class="progress mb-3">
+        <div class="progress mb-2">
           <div class="progress-bar bg-{{ cor_churras }}" role="progressbar"
             style="width: {{ porcentagem_churras }}%" aria-valuenow="{{ porcentagem_churras }}"
             aria-valuemin="0" aria-valuemax="100">
@@ -404,8 +352,8 @@
         </div>
         <h6>Última Venda:</h6>
         {% if ultima_consultora %}
-        <div class="ultima-venda d-flex flex-column align-items-center mb-3">
-          <div class="d-flex align-items-center mb-2 gap-2">
+        <div class="ultima-venda d-flex flex-column align-items-center mb-2">
+          <div class="d-flex align-items-center mb-1 gap-2">
             {% if ultima_consultora.imagem_base64 %}
             <img src="data:image/png;base64,{{ ultima_consultora.imagem_base64 }}"
               class="rounded-circle profile-img">
@@ -413,36 +361,35 @@
             <img src="/static/reobot.png" class="rounded-circle profile-img">
             {% endif %}
             <div class="text-center">
-              <p class="mb-0 fw-semibold" style="font-size: 1.7rem;">{{ ultima_consultora.nome }}</p>
-              <small class="text-muted">{{ ultima_consultora.cidade }}</small>
+              <p class="mb-0 fw-semibold" style="font-size: 0.7rem;">{{ ultima_consultora.nome }}</p>
+              <small class="text-muted" style="font-size: 0.65rem;">{{ ultima_consultora.cidade }}</small>
             </div>
           </div>
           <div class="text-center">
-            <small>Data de Fechamento: {{ ultima_consultora.data }}</small><br>
-            <strong style="font-size: 1.7rem;">R$ {{ ultima_consultora.valor | format_valor }}</strong>
+            <small style="font-size: 0.65rem;">Data: {{ ultima_consultora.data }}</small><br>
+            <strong style="font-size: 0.9rem;">R$ {{ ultima_consultora.valor | format_valor }}</strong>
           </div>
         </div>
         {% else %}
-        <p style="font-size: 0.9rem;">Sem vendas este mês</p>
+        <p style="font-size: 0.75rem;">Sem vendas este mês</p>
         {% endif %}
-        <hr class="border-light opacity-50">
+        <hr class="border-light">
         <div class="row text-center">
           <div class="col-6">
             <h6>Prospecção</h6>
-            <p style="font-size: 2.0rem; margin-bottom: 0;">{{ prospeccao }}</p>
+            <p class="display-6">{{ prospeccao }}</p>
           </div>
           <div class="col-6">
             <h6>Quentes</h6>
-            <p style="font-size: 2.0rem; margin-bottom: 0;">{{ quentes }}</p>
+            <p class="display-6">{{ quentes }}</p>
           </div>
         </div>
         {% if campanha_ativa %}
-        <hr class="border-light opacity-50">
+        <hr class="border-light">
         <div>
           <h6 class="text-center">Campanha {{ campanha_ativa.nome }}</h6>
-          <p class="text-center text-white-50 mb-1" style="font-size: 0.8rem;">
-            Meta: R$ {{ meta_campanha | format_valor }} &mdash; Atual: R$ {{ valor_atual |
-            format_valor }}
+          <p class="text-center text-white-50 mb-1" style="font-size: 0.7rem;">
+            Meta: R$ {{ meta_campanha | format_valor }} — Atual: R$ {{ valor_atual | format_valor }}
           </p>
           <div class="progress">
             <div class="progress-bar bg-{{ cor_campanha }}" role="progressbar"
@@ -458,14 +405,14 @@
 
     <!-- Card de Ranking -->
     <div class="card text-white ranking-card">
-      <h5 class="mb-0">Ranking de Empresas Parceiras</h5>
+      <h5 class="mb-0">Ranking Empresas</h5>
       <div class="ranking-container">
         {% set ordem_podio = [1, 0, 2] %}
         {% for i in ordem_podio %}
         {% if ranking | length > i %}
         {% set r = ranking[i] %}
         <div class="ranking-item"
-          style="margin-bottom: {% if i == 0 %}20px{% elif i == 1 %}10px{% else %}0{% endif %};">
+          style="margin-bottom: {% if i == 0 %}12px{% elif i == 1 %}6px{% else %}0{% endif %};">
           {% if i == 0 %}
           <img src="{{ url_for('static', filename='coroa.png') }}" alt="Coroa"
             class="coroa">
