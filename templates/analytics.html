@@ -1,9 +1,6 @@
-{% extends 'base.html' %}
-{% block title %}Reobote Analytics{% endblock %}
-{% block body_class %}analytics-body{% endblock %}
-{% block navbar %}{% endblock %}
-{% block main_class %} analytics-shell{% endblock %}
-{% block extra_head %}
+{% extends 'base.html' %} {% block title %}Reobote Analytics{% endblock %} {%
+block body_class %}analytics-body{% endblock %} {% block navbar %}{% endblock %}
+{% block main_class %} analytics-shell{% endblock %} {% block extra_head %}
 <style>
   * {
     box-sizing: border-box;
@@ -11,7 +8,8 @@
     padding: 0;
   }
 
-  html, body {
+  html,
+  body {
     width: 100%;
     height: 100%;
     overflow: hidden;
@@ -37,7 +35,7 @@
     color: #fff;
   }
 
-  /* Container principal com duas colunas FIXAS 50/50 */
+  /* Container principal com duas colunas FIXAS 60/40 */
   .analytics-container {
     display: flex;
     width: 100%;
@@ -65,7 +63,7 @@
     height: 100%;
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 0;
     padding: 10px;
     overflow: hidden;
     flex-shrink: 0;
@@ -98,72 +96,83 @@
   }
 
   .profile-img {
-    width: 50px;
-    height: 50px;
+    width: 45px;
+    height: 45px;
     object-fit: cover;
     border-radius: 50%;
     border: 2px solid rgba(255, 255, 255, 0.35);
     flex-shrink: 0;
   }
 
-  .ranking-container {
+  /* Estilo de Pódio */
+  .podio-container {
     display: flex;
     justify-content: center;
     align-items: flex-end;
     gap: 8px;
-    margin-top: 8px;
-    padding: 0;
-    flex-wrap: nowrap;
+    height: 160px;
+    position: relative;
   }
 
-  .ranking-item {
-    border-radius: 1rem;
-    padding: 8px 8px 12px;
+  .podio-item {
     position: relative;
     text-align: center;
-    flex: 0 0 auto;
-    width: 110px;
-    overflow: visible;
     flex-shrink: 0;
   }
 
-  .ranking-item img:not(.coroa),
-  .ranking-item .sem-foto {
-    width: 65px;
-    height: 65px;
+  .podio-item.primeiro {
+    order: 2;
+    margin-bottom: 30px;
+  }
+
+  .podio-item.segundo {
+    order: 1;
+    margin-bottom: 0;
+  }
+
+  .podio-item.terceiro {
+    order: 3;
+    margin-bottom: 0;
+  }
+
+  .podio-item img:not(.coroa),
+  .podio-item .sem-foto {
+    width: 50px;
+    height: 50px;
     object-fit: cover;
     border-radius: 50%;
-    border: 3px solid #ddd;
+    border: 2px solid #ddd;
     margin: 0 auto;
   }
 
-  .ranking-item .sem-foto {
+  .podio-item .sem-foto {
     display: flex;
     align-items: center;
     justify-content: center;
     background: #ddd;
     color: #666;
-    font-size: 0.65rem;
+    font-size: 0.6rem;
   }
 
-  .ranking-item .nome {
-    margin-top: 0.3rem;
+  .podio-item .nome {
+    margin-top: 0.2rem;
     font-weight: 600;
-    font-size: 0.7rem;
+    font-size: 0.6rem;
     word-break: break-word;
+    max-width: 70px;
   }
 
-  .ranking-item .total {
+  .podio-item .total {
     color: #ccc;
-    font-size: 0.65rem;
+    font-size: 0.55rem;
   }
 
-  .ranking-item .coroa {
-    width: 30px;
-    height: 30px;
+  .podio-item .coroa {
+    width: 28px;
+    height: 28px;
     padding: 2px;
     position: absolute;
-    top: -18px;
+    top: -20px;
     left: 50%;
     transform: translateX(-50%);
     z-index: 10;
@@ -185,67 +194,71 @@
   }
 
   .info-card .card-body {
-    padding: 10px;
+    padding: 8px;
     overflow-y: auto;
     flex: 1;
+    font-size: 0.75rem;
   }
 
   .info-card h6 {
-    font-size: 0.75rem;
-    margin-bottom: 4px;
+    font-size: 0.65rem;
+    margin-bottom: 2px;
     font-weight: 600;
   }
 
   .info-card h2 {
-    font-size: 1.1rem;
-    margin-bottom: 6px;
+    font-size: 0.95rem;
+    margin-bottom: 3px;
   }
 
   .info-card .progress {
-    height: 16px;
-    margin-bottom: 6px;
+    height: 12px;
+    margin-bottom: 3px;
   }
 
   .info-card .progress-bar {
-    font-size: 0.65rem;
-    line-height: 16px;
+    font-size: 0.6rem;
+    line-height: 12px;
   }
 
   .info-card hr {
-    margin: 6px 0;
+    margin: 3px 0;
     opacity: 0.5;
   }
 
   .info-card .row {
-    margin-bottom: 6px;
+    margin-bottom: 3px;
   }
 
   .info-card .col {
-    padding: 2px;
+    padding: 1px;
   }
 
   .info-card p {
-    margin-bottom: 3px;
-    font-size: 0.75rem;
+    margin-bottom: 1px;
+    font-size: 0.65rem;
   }
 
   .info-card .display-6 {
-    font-size: 1.2rem;
+    font-size: 0.9rem;
     margin-bottom: 0;
   }
 
   /* Card de ranking */
   .ranking-card {
     overflow: visible;
-    padding: 10px;
+    padding: 8px 10px;
     flex-shrink: 0;
     display: flex;
     flex-direction: column;
+    justify-content: flex-end;
+    min-height: 180px;
   }
 
   .ranking-card h5 {
-    font-size: 0.8rem;
+    font-size: 0.7rem;
     margin-bottom: 6px;
+    text-align: center;
   }
 
   /* Scrollbar customizada */
@@ -266,71 +279,117 @@
     background: rgba(255, 255, 255, 0.4);
   }
 
-  /* Força layout 50/50 em TODAS as resoluções */
+  /* Força layout 60/40 em TODAS as resoluções */
   @media (max-width: 2560px) {
-    .propaganda-column { width: 60%; height: 100%; }
-    .info-column { width: 40%; height: 100%; }
+    .propaganda-column {
+      width: 60%;
+      height: 100%;
+    }
+    .info-column {
+      width: 40%;
+      height: 100%;
+    }
   }
 
   @media (max-width: 1920px) {
-    .propaganda-column { width: 60%; height: 100%; }
-    .info-column { width: 40%; height: 100%; }
+    .propaganda-column {
+      width: 60%;
+      height: 100%;
+    }
+    .info-column {
+      width: 40%;
+      height: 100%;
+    }
   }
 
   @media (max-width: 1280px) {
-    .propaganda-column { width: 60%; height: 100%; }
-    .info-column { width: 40%; height: 100%; }
+    .propaganda-column {
+      width: 60%;
+      height: 100%;
+    }
+    .info-column {
+      width: 40%;
+      height: 100%;
+    }
   }
 
   @media (max-width: 768px) {
-    .propaganda-column { width: 60%; height: 100%; }
-    .info-column { width: 40%; height: 100%; }
+    .propaganda-column {
+      width: 60%;
+      height: 100%;
+    }
+    .info-column {
+      width: 40%;
+      height: 100%;
+    }
   }
 
   @media (max-width: 480px) {
-    .propaganda-column { width: 60%; height: 100%; }
-    .info-column { width: 40%; height: 100%; }
+    .propaganda-column {
+      width: 60%;
+      height: 100%;
+    }
+    .info-column {
+      width: 40%;
+      height: 100%;
+    }
   }
 </style>
-{% endblock %}
-
-{% block content %}
+{% endblock %} {% block content %}
 <div class="analytics-container">
-  <!-- Coluna Esquerda: Propagandas (50% FIXO) -->
+  <!-- Coluna Esquerda: Propagandas (60% FIXO) -->
   <div class="propaganda-column">
     <div class="carousel-wrapper">
-      <div id="carouselExample" class="carousel slide h-100" data-bs-ride="carousel" data-bs-interval="5000">
+      <div
+        id="carouselExample"
+        class="carousel slide h-100"
+        data-bs-ride="carousel"
+        data-bs-interval="5000"
+      >
         <div class="carousel-inner h-100">
           {% for p in propagandas %}
-          <div class="carousel-item {% if loop.index0 == 0 %}active{% endif %} h-100">
-            <img src="data:image/png;base64,{{ p.imagem_base64 }}" alt="{{ p.titulo }}"
-              class="d-block w-100 h-100">
+          <div
+            class="carousel-item {% if loop.index0 == 0 %}active{% endif %} h-100"
+          >
+            <img
+              src="data:image/png;base64,{{ p.imagem_base64 }}"
+              alt="{{ p.titulo }}"
+              class="d-block w-100 h-100"
+            />
           </div>
           {% endfor %}
         </div>
-        <button class="carousel-control-prev" type="button" data-bs-target="#carouselExample"
-          data-bs-slide="prev">
+        <button
+          class="carousel-control-prev"
+          type="button"
+          data-bs-target="#carouselExample"
+          data-bs-slide="prev"
+        >
           <span class="carousel-control-prev-icon" aria-hidden="true"></span>
         </button>
-        <button class="carousel-control-next" type="button" data-bs-target="#carouselExample"
-          data-bs-slide="next">
+        <button
+          class="carousel-control-next"
+          type="button"
+          data-bs-target="#carouselExample"
+          data-bs-slide="next"
+        >
           <span class="carousel-control-next-icon" aria-hidden="true"></span>
         </button>
       </div>
     </div>
   </div>
 
-  <!-- Coluna Direita: Informações (50% FIXO) -->
+  <!-- Coluna Direita: Informações (40% FIXO) -->
   <div class="info-column">
     <!-- Card de Informações Principais -->
     <div class="card text-white info-card">
       <div class="card-body">
         <div class="row text-center">
-          <div class="col">
+          <div class="col-6">
             <h6>Vendas Anuais</h6>
             <p>R$ {{ vendas_anuais | format_valor }}</p>
           </div>
-          <div class="col">
+          <div class="col-6">
             <h6>Vendas Cotas</h6>
             <p>R$ {{ vendas_cotas | format_valor }}</p>
           </div>
@@ -341,12 +400,17 @@
             <h2>R$ {{ vendas_mes | format_valor }}</h2>
           </div>
         </div>
-        <hr class="border-light">
+        <hr class="border-light" />
         <h6>Churrascômetro:</h6>
         <div class="progress mb-2">
-          <div class="progress-bar bg-{{ cor_churras }}" role="progressbar"
-            style="width: {{ porcentagem_churras }}%" aria-valuenow="{{ porcentagem_churras }}"
-            aria-valuemin="0" aria-valuemax="100">
+          <div
+            class="progress-bar bg-{{ cor_churras }}"
+            role="progressbar"
+            style="width: {{ porcentagem_churras }}%"
+            aria-valuenow="{{ porcentagem_churras }}"
+            aria-valuemin="0"
+            aria-valuemax="100"
+          >
             {{ texto_churras }}
           </div>
         </div>
@@ -355,25 +419,35 @@
         <div class="ultima-venda d-flex flex-column align-items-center mb-2">
           <div class="d-flex align-items-center mb-1 gap-2">
             {% if ultima_consultora.imagem_base64 %}
-            <img src="data:image/png;base64,{{ ultima_consultora.imagem_base64 }}"
-              class="rounded-circle profile-img">
+            <img
+              src="data:image/png;base64,{{ ultima_consultora.imagem_base64 }}"
+              class="rounded-circle profile-img"
+            />
             {% else %}
-            <img src="/static/reobot.png" class="rounded-circle profile-img">
+            <img src="/static/reobot.png" class="rounded-circle profile-img" />
             {% endif %}
             <div class="text-center">
-              <p class="mb-0 fw-semibold" style="font-size: 0.7rem;">{{ ultima_consultora.nome }}</p>
-              <small class="text-muted" style="font-size: 0.65rem;">{{ ultima_consultora.cidade }}</small>
+              <p class="mb-0 fw-semibold" style="font-size: 0.65rem">
+                {{ ultima_consultora.nome }}
+              </p>
+              <small class="text-muted" style="font-size: 0.6rem"
+                >{{ ultima_consultora.cidade }}</small
+              >
             </div>
           </div>
           <div class="text-center">
-            <small style="font-size: 0.65rem;">Data: {{ ultima_consultora.data }}</small><br>
-            <strong style="font-size: 0.9rem;">R$ {{ ultima_consultora.valor | format_valor }}</strong>
+            <small style="font-size: 0.6rem"
+              >Data: {{ ultima_consultora.data }}</small
+            ><br />
+            <strong style="font-size: 0.85rem"
+              >R$ {{ ultima_consultora.valor | format_valor }}</strong
+            >
           </div>
         </div>
         {% else %}
-        <p style="font-size: 0.75rem;">Sem vendas este mês</p>
+        <p style="font-size: 0.65rem">Sem vendas</p>
         {% endif %}
-        <hr class="border-light">
+        <hr class="border-light" />
         <div class="row text-center">
           <div class="col-6">
             <h6>Prospecção</h6>
@@ -385,51 +459,59 @@
           </div>
         </div>
         {% if campanha_ativa %}
-        <hr class="border-light">
+        <hr class="border-light" />
         <div>
           <h6 class="text-center">Campanha {{ campanha_ativa.nome }}</h6>
-          <p class="text-center text-white-50 mb-1" style="font-size: 0.7rem;">
-            Meta: R$ {{ meta_campanha | format_valor }} — Atual: R$ {{ valor_atual | format_valor }}
+          <p class="text-center text-white-50 mb-1" style="font-size: 0.65rem">
+            Meta: R$ {{ meta_campanha | format_valor }} — Atual: R$ {{
+            valor_atual | format_valor }}
           </p>
           <div class="progress">
-            <div class="progress-bar bg-{{ cor_campanha }}" role="progressbar"
-              style="width: {{ porcentagem_campanha }}%;" aria-valuenow="{{ porcentagem_campanha }}"
-              aria-valuemin="0" aria-valuemax="100">
+            <div
+              class="progress-bar bg-{{ cor_campanha }}"
+              role="progressbar"
+              style="width: {{ porcentagem_campanha }}%;"
+              aria-valuenow="{{ porcentagem_campanha }}"
+              aria-valuemin="0"
+              aria-valuemax="100"
+            >
               {{ texto_campanha }}
             </div>
           </div>
         </div>
         {% endif %}
-      </div>
-    </div>
 
-    <!-- Card de Ranking -->
-    <div class="card text-white ranking-card">
-      <h5 class="mb-0">Ranking Empresas</h5>
-      <div class="ranking-container">
-        {% set ordem_podio = [1, 0, 2] %}
-        {% for i in ordem_podio %}
-        {% if ranking | length > i %}
-        {% set r = ranking[i] %}
-        <div class="ranking-item"
-          style="margin-bottom: {% if i == 0 %}12px{% elif i == 1 %}6px{% else %}0{% endif %};">
-          {% if i == 0 %}
-          <img src="{{ url_for('static', filename='coroa.png') }}" alt="Coroa"
-            class="coroa">
-          {% endif %}
-          {% if r.imagem_base64 %}
-          <img src="data:image/png;base64,{{ r.imagem_base64 }}" alt="Consultor">
-          {% else %}
-          <div class="sem-foto">
-            Sem foto
+        <div class="card text-white ranking-card">
+          <h5 class="mb-0">Ranking Empresas</h5>
+          <div class="podio-container">
+            {% set ordem_podio = [1, 0, 2] %} {% for i in ordem_podio %} {% if
+            ranking | length > i %} {% set r = ranking[i] %}
+            <div
+              class="podio-item {% if i == 0 %}primeiro{% elif i == 1 %}segundo{% else %}terceiro{% endif %}"
+            >
+              {% if i == 0 %}
+              <img
+                src="{{ url_for('static', filename='coroa.png') }}"
+                alt="Coroa"
+                class="coroa"
+              />
+              {% endif %} {% if r.imagem_base64 %}
+              <img
+                src="data:image/png;base64,{{ r.imagem_base64 }}"
+                alt="Consultor"
+              />
+              {% else %}
+              <div class="sem-foto">Sem foto</div>
+              {% endif %}
+              <div class="nome">{{ r.nome }}</div>
+              <div class="total">R$ {{ r.total | format_valor }}</div>
+            </div>
+            {% endif %} {% endfor %}
           </div>
-          {% endif %}
-          <div class="nome">{{ r.nome }}</div>
-          <div class="total">R$ {{ r.total | format_valor }}</div>
         </div>
-        {% endif %}
-        {% endfor %}
       </div>
+
+      <!-- Card de Ranking em Estilo Pódio -->
     </div>
   </div>
 </div>
@@ -443,13 +525,14 @@
   }
 
   setInterval(async () => {
-    const res = await fetch('/verificar-novas-vendas');
+    const res = await fetch("/verificar-novas-vendas");
     const data = await res.json();
     if (data.temNovaVenda) {
       window.location.reload();
-      const audios = ['silvio.mp3', 'silvio2.mp3', 'silvio3.mp3'];
-      const audioSelecionado = audios[Math.floor(Math.random() * audios.length)];
-      const audio = new Audio('/static/audios/' + audioSelecionado);
+      const audios = ["silvio.mp3", "silvio2.mp3", "silvio3.mp3"];
+      const audioSelecionado =
+        audios[Math.floor(Math.random() * audios.length)];
+      const audio = new Audio("/static/audios/" + audioSelecionado);
       audio.play();
       dispararConfete();
     }
